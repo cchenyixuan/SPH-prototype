@@ -1,0 +1,13 @@
+f(geometry) -> discrete geometry of particles
+
+f(domain, geometry) -> hash table of all particles inside discrete domain
+
+f(domain, geometry, hash_table) -> solver iterate step by step
+
+require validation check for acceleration/ velocity/ movement in compute shaders and apply auto-adapt-time-step integrator
+
+voxel compute shader and compute4 solver could not be used at same time due to buffer memory access conflict
+
+New inspect! Voxel orientation NOT MATCH!! Urgent fix is required!
+
+Voxel Phase Interface Error, require fixing!
