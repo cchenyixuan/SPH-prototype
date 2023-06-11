@@ -9,7 +9,7 @@ out GeometryOutput{
 
 
 
-layout(std430, binding=5) coherent buffer VoxelParticleNumbers{
+layout(std430, binding=3) coherent buffer VoxelParticleNumbers{
     int VoxelParticleNumber[];
 };
 
@@ -32,9 +32,7 @@ layout(std430, binding=13) coherent buffer Voxels3{
 layout(std430, binding=14) coherent buffer Voxels4{
     int Voxel4[];
 };
-layout(std430, binding=15) coherent buffer Voxels5{
-    int Voxel5[];
-};
+
 
 const float PI = 3.141592653589793;
 const int n_boundary_particle = 10383;
@@ -79,9 +77,9 @@ int get_voxel_data(int voxel_id, int pointer){
         case 4:
             ans = Voxel4[voxel_local_index*voxel_memory_length+pointer];
             break;
-        case 5:
-            ans = Voxel5[voxel_local_index*voxel_memory_length+pointer];
-            break;
+        //case 5:
+        //    ans = Voxel5[voxel_local_index*voxel_memory_length+pointer];
+        //    break;
     }
     return ans;
 }
@@ -111,9 +109,9 @@ void set_voxel_data(int voxel_id, int pointer, int value){
         case 4:
             Voxel4[voxel_local_index*voxel_memory_length+pointer] = value;
             break;
-        case 5:
-            Voxel5[voxel_local_index*voxel_memory_length+pointer] = value;
-            break;
+        //case 5:
+        //    Voxel5[voxel_local_index*voxel_memory_length+pointer] = value;
+        //    break;
     }
 }
 
@@ -143,9 +141,9 @@ int set_voxel_data_atomic(int voxel_id, int pointer, int value){
         case 4:
             ans = atomicAdd(Voxel4[voxel_local_index*voxel_memory_length+pointer], value);
             break;
-        case 5:
-            ans = atomicAdd(Voxel5[voxel_local_index*voxel_memory_length+pointer], value);
-            break;
+        //case 5:
+        //    ans = atomicAdd(Voxel5[voxel_local_index*voxel_memory_length+pointer], value);
+        //    break;
     }
     return ans;
 }

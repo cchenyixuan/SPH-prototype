@@ -2,36 +2,54 @@
 
 layout(std430, binding=0) buffer Particles{
     // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
+    // x , y , z , voxel_id
+    // vx, vy, vz, mass
+    // wx, wy, wz, rho
+    // ax, ay, az, pressure
     mat4x4 Particle[];
 };
 layout(std430, binding=1) buffer ParticlesSubData{
     // particle inside domain has additional data: t_transfer.xyz, 0.0, 0.0...;
+    // 0 , 0 , 0 , 0
+    // 0 , 0 , 0 , 0
+    // 0 , 0 , 0 , 0
+    // 0 , 0 , 0 , group_id
     mat4x4 ParticleSubData[];
 };
 layout(std430, binding=2) buffer BoundaryParticles{
     // particle at boundary with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
+    // x , y , z , voxel_id
+    // vx, vy, vz, mass
+    // wx, wy, wz, rho
+    // ax, ay, az, pressure
     mat4x4 BoundaryParticle[];
 };
-layout(std430, binding=5) coherent buffer VoxelParticleNumbers{
+layout(std430, binding=3) coherent buffer VoxelParticleNumbers{
     int VoxelParticleNumber[];
 };
-layout(std430, binding=6) coherent buffer VoxelParticleInNumbers{
+layout(std430, binding=4) coherent buffer VoxelParticleInNumbers{
     int VoxelParticleInNumber[];
 };
-layout(std430, binding=7) coherent buffer VoxelParticleOutNumbers{
+layout(std430, binding=5) coherent buffer VoxelParticleOutNumbers{
     int VoxelParticleOutNumber[];
 };
-layout(std430, binding=8) coherent buffer GlobalStatus{
+layout(std430, binding=6) buffer GlobalStatus{
     // simulation global settings and status such as max velocity etc.
     // [n_particle, n_boundary_particle, n_voxel, Inlet1ParticleNumber, Inlet2ParticleNumber, Inlet3ParticleNumber, Inlet1Pointer, Inlet2Pointer, Inlet3Pointer, Inlet1In, Inlet2In, Inlet3In]
     int StatusInt[];
 };
-layout(std430, binding=9) buffer GlobalStatus2{
-    // simulation global settings and status such as max velocity etc.
-    // [self.H, self.R, self.DELTA_T, self.VISCOSITY, self.COHESION, self.ADHESION, voxel_offset_x, voxel_offset_y, voxel_offset_z, Inlet1In_float, Inlet2In_float, Inlet3In_float]
-    float StatusFloat[];
+layout(std430, binding=7) buffer Inlets1{
+    // inlet1 with n particles // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; 0, 0, 0, rho; 0, 0, 0, P;
+    mat4x4 Inlet1[];
 };
-
+layout(std430, binding=8) buffer Inlets2{
+    // inlet2 with n particles // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
+    mat4x4 Inlet2[];
+};
+layout(std430, binding=9) buffer Inlets3{
+    // inlet3 with n particles // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
+    mat4x4 Inlet3[];
+};
 layout(std430, binding=10) coherent buffer Voxels0{
     // each voxel has 182 mat44 and first 2 matrices contains its id, x_offset of h, y_offset of h, z_offset of h; and neighborhood voxel ids
     // other 180 matrices containing current-indoor-particle-ids, particles getting out and particles stepping in
@@ -50,20 +68,10 @@ layout(std430, binding=13) coherent buffer Voxels3{
 layout(std430, binding=14) coherent buffer Voxels4{
     int Voxel4[];
 };
-layout(std430, binding=15) coherent buffer Voxels5{
-    int Voxel5[];
-};
-layout(std430, binding=16) buffer Inlets1{
-    // inlet1 with n particles // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; 0, 0, 0, rho; 0, 0, 0, P;
-    mat4x4 Inlet1[];
-};
-layout(std430, binding=17) buffer Inlets2{
-    // inlet2 with n particles // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
-    mat4x4 Inlet2[];
-};
-layout(std430, binding=18) buffer Inlets3{
-    // inlet3 with n particles // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
-    mat4x4 Inlet3[];
+layout(std430, binding=15) buffer GlobalStatus2{
+    // simulation global settings and status such as max velocity etc.
+    // [self.H, self.R, self.DELTA_T, self.VISCOSITY, self.COHESION, self.ADHESION, voxel_offset_x, voxel_offset_y, voxel_offset_z, Inlet1In_float, Inlet2In_float, Inlet3In_float]
+    float StatusFloat[];
 };
 
 layout(local_size_x=1, local_size_y=1, local_size_z=1) in;
@@ -90,106 +98,112 @@ const float adhesion = 0.0001;
 const vec3 offset = vec3(-0.434871, -0.690556, -0.245941);
 const int VOXEL_GROUP_SIZE = 300000;
 const float particle_volume = 6.545e-08;
+const float Coeff_Poly6_2d = 1.0;  // 4 / (PI * pow(h, 8));
+const float Coeff_Poly6_3d = 1.0;  // 315 / (64 * PI * pow(h, 9));
+const float Coeff_Spiky_2d = 1.0;  // 10 / (PI * pow(h, 5));
+const float Coeff_Spiky_3d = 1.0;  // 15 / (PI * pow(h, 6));
+const float Coeff_Viscosity_2d = 1.0; // 40 / (PI * h2);
+const float Coeff_Viscosity_3d = 1.0; // 15 / (2 * PI * pow(h, 3));
 
 
 float h2 = h * h;
 
 // coefficients
-struct Coefficient{
-    float Poly6_2d;
-    float Poly6_3d;
-    float Spiky_2d;
-    float Spiky_3d;
-    float Viscosity_2d;
-    float Viscosity_3d;
-};
-
-Coefficient coeff = Coefficient(
-    4 / (PI * pow(h, 8)),
-    315 / (64 * PI * pow(h, 9)),
-    10 / (PI * pow(h, 5)),
-    15 / (PI * pow(h, 6)),
-    40 / (PI * h2),
-    15 / (2 * PI * pow(h, 3))
-);
+// struct Coefficient{
+//     float Poly6_2d;
+//     float Poly6_3d;
+//     float Spiky_2d;
+//     float Spiky_3d;
+//     float Viscosity_2d;
+//     float Viscosity_3d;
+// };
+//
+// Coefficient coeff = Coefficient(
+//     4 / (PI * pow(h, 8)),
+//     315 / (64 * PI * pow(h, 9)),
+//     10 / (PI * pow(h, 5)),
+//     15 / (PI * pow(h, 6)),
+//     40 / (PI * h2),
+//     15 / (2 * PI * pow(h, 3))
+// );
 
 
 // poly6
 float poly6_2d(float rij, float h){
-    return max(0.0, coeff.Poly6_2d * pow((h2 - rij * rij),3));
+    return max(0.0, Coeff_Poly6_2d * pow((h2 - rij * rij),3));
 }
 float poly6_3d(float rij, float h){
-    return max(0.0, coeff.Poly6_3d * pow((h2 - rij * rij),3));
+    return max(0.0, Coeff_Poly6_3d * pow((h2 - rij * rij),3));
 }
 vec2 grad_poly6_2d(float x, float y, float rij, float h){
     if (rij > h){return vec2(0.0, 0.0);}
-    float w_prime = - 6 * coeff.Poly6_2d * pow((h2 - rij * rij),2);
+    float w_prime = - 6 * Coeff_Poly6_2d * pow((h2 - rij * rij),2);
     return vec2(w_prime * x, w_prime * y);
 }
 vec3 grad_poly6_3d(float x, float y, float z, float rij, float h){
     if (rij > h){return vec3(0.0, 0.0, 0.0);}
-    float w_prime = - 6 * coeff.Poly6_3d * pow((h2 - rij * rij),2);
+    float w_prime = - 6 * Coeff_Poly6_3d * pow((h2 - rij * rij),2);
     return vec3(w_prime * x, w_prime * y, w_prime * z);
 }
 float lap_poly6_2d(float rij, float h){
     if (rij > h){return 0;}
-    return - 12 * coeff.Poly6_2d * (h2 - rij * rij) * (h2 - 3 * rij * rij);
+    return - 12 * Coeff_Poly6_2d * (h2 - rij * rij) * (h2 - 3 * rij * rij);
 }
 float lap_poly6_3d(float rij, float h){
     if (rij > h){return 0;}
-    return - 6 * coeff.Poly6_3d * (h2 - rij * rij) * (3 * h2 - 7 * rij * rij);
+    return - 6 * Coeff_Poly6_3d * (h2 - rij * rij) * (3 * h2 - 7 * rij * rij);
 }
 
 // spiky
 float spiky_2d(float rij, float h){
-    return max(0.0, coeff.Spiky_2d * pow((h - rij),3));
+    return max(0.0, Coeff_Spiky_2d * pow((h - rij),3));
 }
 float spiky_3d(float rij, float h){
-    return max(0.0, coeff.Spiky_3d * pow((h - rij),3));
+    return max(0.0, Coeff_Spiky_3d * pow((h - rij),3));
 }
 vec2 grad_spiky_2d(float x, float y, float rij, float h){
     if (rij > h){return vec2(0.0, 0.0);}
-    float w_prime = - 3 * coeff.Spiky_2d * pow((h - rij),2);
+    float w_prime = - 3 * Coeff_Spiky_2d * pow((h - rij),2);
     return vec2(w_prime * x / rij, w_prime * y / rij);
 }
 vec3 grad_spiky_3d(float x, float y, float z, float rij, float h){
     if (rij > h){return vec3(0.0, 0.0, 0.0);}
-    float w_prime = - 3 * coeff.Spiky_3d * pow((h - rij),2);
+    float w_prime = - 3 * Coeff_Spiky_3d * pow((h - rij),2);
     return vec3(w_prime * x / rij, w_prime * y / rij, w_prime * z / rij);
 }
 float lap_spiky_2d(float rij, float h){
     if (rij > h){return 0;}
-    return coeff.Spiky_2d * (- 3 * h2 / rij + 12 * h - 9 * rij);
+    return Coeff_Spiky_2d * (- 3 * h2 / rij + 12 * h - 9 * rij);
 }
 float lap_spiky_3d(float rij, float h){
     if (rij > h){return 0;}
-    return coeff.Spiky_3d * (- 6 * h2 / rij + 18 * h - 12 * rij);
+    return Coeff_Spiky_3d * (- 6 * h2 / rij + 18 * h - 12 * rij);
 }
 
 // viscosity
 float viscosity_2d(float rij, float h){
-    return max(0.0, coeff.Viscosity_2d * (- rij * rij * rij / (2 * h2) + rij * rij / h2 + h / (2 * rij) -1));
+    return max(0.0, Coeff_Viscosity_2d * (- rij * rij * rij / (2 * h2) + rij * rij / h2 + h / (2 * rij) -1));
 }
 float viscosity_3d(float rij, float h){
-    return max(0.0, coeff.Viscosity_3d * (- rij * rij * rij / (9 * h2) + rij * rij / (4 * h2) + log(rij / h) / 6 - 5 / 36));
+    return max(0.0, Coeff_Viscosity_3d * (- rij * rij * rij / (9 * h2) + rij * rij / (4 * h2) + log(rij / h) / 6 - 5 / 36));
 }
 vec2 grad_viscosity_2d(float x, float y, float rij, float h){
     if (rij > h){return vec2(0.0, 0.0);}
-    float w_prime = coeff.Viscosity_2d * (- rij * rij / (3 * h2 * h) + rij / (2 * h2) - 1/ (6 * rij));
+    float w_prime = Coeff_Viscosity_2d * (- rij * rij / (3 * h2 * h) + rij / (2 * h2) - 1/ (6 * rij));
     return vec2(w_prime * x / rij, w_prime * y / rij);
 }
 vec3 grad_viscosity_3d(float x, float y, float z, float rij, float h){
     if (rij > h){return vec3(0.0, 0.0, 0.0);}
-    float w_prime = coeff.Viscosity_3d * (- 3 * rij * rij / (h2 * h) + 2 * rij / h2 - h / (2 * rij * rij));
+    float w_prime = Coeff_Viscosity_3d * (- 3 * rij * rij / (h2 * h) + 2 * rij / h2 - h / (2 * rij * rij));
     return vec3(w_prime * x / rij, w_prime * y / rij, w_prime * z / rij);
 }
 float lap_viscosity_2d(float rij, float h){
     if (rij > h){return 0;}
-    return 6 * coeff.Viscosity_2d / (h * h2) * (h - rij);
+    return 6 * Coeff_Viscosity_2d / (h * h2) * (h - rij);
 }
 float lap_viscosity_3d(float rij, float h){
     if (rij > h){return 0;}
-    return coeff.Viscosity_3d / (h * h2) * (h - rij);
+    return Coeff_Viscosity_3d / (h * h2) * (h - rij);
 }
 
 int get_voxel_data(int voxel_id, int pointer){
@@ -216,9 +230,9 @@ int get_voxel_data(int voxel_id, int pointer){
         case 4:
             ans = Voxel4[voxel_local_index*voxel_memory_length+pointer];
             break;
-        case 5:
-            ans = Voxel5[voxel_local_index*voxel_memory_length+pointer];
-            break;
+        //case 5:
+        //    ans = Voxel5[voxel_local_index*voxel_memory_length+pointer];
+        //    break;
     }
     return ans;
 }
@@ -248,9 +262,9 @@ void set_voxel_data(int voxel_id, int pointer, int value){
         case 4:
             Voxel4[voxel_local_index*voxel_memory_length+pointer] = value;
             break;
-        case 5:
-            Voxel5[voxel_local_index*voxel_memory_length+pointer] = value;
-            break;
+        //case 5:
+        //    Voxel5[voxel_local_index*voxel_memory_length+pointer] = value;
+        //    break;
     }
 }
 
@@ -280,9 +294,9 @@ int set_voxel_data_atomic(int voxel_id, int pointer, int value){
         case 4:
             ans = atomicAdd(Voxel4[voxel_local_index*voxel_memory_length+pointer], value);
             break;
-        case 5:
-            ans = atomicAdd(Voxel5[voxel_local_index*voxel_memory_length+pointer], value);
-            break;
+        //case 5:
+        //    ans = atomicAdd(Voxel5[voxel_local_index*voxel_memory_length+pointer], value);
+        //    break;
     }
     return ans;
 }

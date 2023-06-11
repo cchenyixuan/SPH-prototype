@@ -5,7 +5,6 @@ import pyrr
 import numpy as np
 from OpenGL.GL import *
 import glfw
-import Demo
 import Demo2
 from camera import Camera
 from PIL import Image
@@ -37,6 +36,7 @@ class DisplayPort:
         self.current_step = 0
         self.counter = 0
         self.camera = Camera()
+        self.run_time = 0.0
 
         self.view = self.camera()
         self.view_changed = False
@@ -84,7 +84,12 @@ class DisplayPort:
                 glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
 
             # render codes
-            self.demo(self.counter, pause=self.pause, show_vector=self.show_vector, show_boundary=self.show_boundary, show_voxel=self.show_voxel)
+            self.demo(self.counter, pause=self.pause, show_vector=self.show_vector, show_boundary=self.show_boundary,
+                      show_voxel=self.show_voxel)
+            self.run_time += self.demo.DELTA_T
+            if self.current_step % 4000 == 0 and self.current_step!=0:
+                print("current step: ", self.current_step)
+                self.save_data()
             if not self.pause:
                 self.current_step += 1
             # glUseProgram(self.demo.compute_shader_a)
@@ -140,24 +145,31 @@ class DisplayPort:
             # print(a)
 
             if self.view_changed:
-                glUseProgram(self.demo.render_shader_voxel)
-                glUniformMatrix4fv(self.demo.voxel_view_loc, 1, GL_FALSE, self.view)
-                glUseProgram(self.demo.render_shader)
-                glUniformMatrix4fv(self.demo.view_loc, 1, GL_FALSE, self.view)
-                glUseProgram(self.demo.render_shader_boundary)
-                glUniformMatrix4fv(self.demo.boundary_view_loc, 1, GL_FALSE, self.view)
-                glUseProgram(self.demo.render_shader_vector)
-                glUniformMatrix4fv(self.demo.vector_view_loc, 1, GL_FALSE, self.view)
+                glProgramUniformMatrix4fv(self.demo.render_shader_voxel, self.demo.voxel_view_loc, 1, GL_FALSE,
+                                          self.view)
+                glProgramUniformMatrix4fv(self.demo.render_shader, self.demo.view_loc, 1, GL_FALSE, self.view)
+                glProgramUniformMatrix4fv(self.demo.render_shader_boundary, self.demo.boundary_view_loc, 1, GL_FALSE,
+                                          self.view)
+                glProgramUniformMatrix4fv(self.demo.render_shader_vector, self.demo.vector_view_loc, 1, GL_FALSE,
+                                          self.view)
                 self.view_changed = False
             # time.sleep(0.02)
             if self.record:
-                self.save_frames(f"tmp/{i}.jpg")
+                if self.current_step % 100 == 0:
+                    self.save_frames(f"tmp/{self.current_step//100}.jpg")
                 # self.save_particle_data(i)
                 i += 1
 
             glClearColor(0.0, 0.0, 0.0, 1.0)
             glfw.swap_buffers(self.window)
         glfw.terminate()
+
+    def save_data(self):
+        data = np.empty((self.demo.boundary_particles.nbytes,), dtype=np.byte)
+
+        glGetNamedBufferSubData(self.demo.sbo_boundary_particles, 0, self.demo.boundary_particles.nbytes, data)
+        data = np.frombuffer(data, dtype=np.float32)
+        np.save(f"{self.current_step*self.demo.DELTA_T}.npy", data)
 
     def save_particle_data(self, i):
         import os
@@ -166,18 +178,18 @@ class DisplayPort:
         os.makedirs("output/group2", exist_ok=True)
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.demo.sbo_particles)
         buffer = np.frombuffer(glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, self.demo.particles.nbytes),
-                           dtype=np.float32).reshape((-1, 4))
-        ptr = buffer.shape[0]//2
+                               dtype=np.float32).reshape((-1, 4))
+        ptr = buffer.shape[0] // 2
         self.save_as_ply(buffer[:ptr], f"output/group1/{i}.ply")
         self.save_as_ply(buffer[ptr:], f"output/group2/{i}.ply")
 
     @staticmethod
     def save_as_ply(particles, export_path):
-        header = f"""ply\nformat ascii 1.0\nelement vertex {particles.shape[0]//4}\nproperty float x\nproperty float y\nproperty float z\nelement face 0\nproperty list uchar uint vertex_indices\nend_header\n"""
+        header = f"""ply\nformat ascii 1.0\nelement vertex {particles.shape[0] // 4}\nproperty float x\nproperty float y\nproperty float z\nelement face 0\nproperty list uchar uint vertex_indices\nend_header\n"""
         with open(export_path, "w") as f:
             f.writelines(header)
-            for i in range(particles.shape[0]//4):
-                f.write("{} {} {}\n".format(*particles[i*4, :3]))
+            for i in range(particles.shape[0] // 4):
+                f.write("{} {} {}\n".format(*particles[i * 4, :3]))
             f.close()
 
     @staticmethod
@@ -195,12 +207,12 @@ class DisplayPort:
             delta = np.array(args[1:], dtype=np.float32) - self.cursor_position[:]
             self.cursor_position = args[1:]
             if self.left_click:
-                self.view = self.camera(pyrr.Vector3((*delta, 0.0))*0.1, "left")
+                self.view = self.camera(pyrr.Vector3((*delta, 0.0)) * 0.1, "left")
                 self.view_changed = True
                 # glUseProgram(self.demo.render_shader_voxel)
                 # glUniformMatrix4fv(self.demo.voxel_view_loc, 1, GL_FALSE, mat)
             elif self.middle_click:
-                self.view = self.camera(pyrr.Vector3((-delta[0]*0.01, delta[1]*0.01, 0.0)), "middle")
+                self.view = self.camera(pyrr.Vector3((-delta[0] * 0.01, delta[1] * 0.01, 0.0)), "middle")
                 self.view_changed = True
                 # glUseProgram(self.demo.render_shader_voxel)
                 # glUniformMatrix4fv(self.demo.voxel_view_loc, 1, GL_FALSE, mat)
@@ -253,10 +265,10 @@ class DisplayPort:
                 self.pause = not self.pause
                 if self.pause:
                     glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.demo.sbo_particles)
-                    a0 = np.frombuffer(glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 10*64),
+                    a0 = np.frombuffer(glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 5000000 * 64),
                                        dtype=np.float32)
                     a = np.reshape(a0, (-1, 4))
-                    print(a[:40])
+                    print(a[:80])
             if key == glfw.KEY_ENTER and action == glfw.PRESS:
                 self.counter += 1
                 self.counter %= self.demo.voxel_number
@@ -264,11 +276,13 @@ class DisplayPort:
                 self.show_vector = not self.show_vector
             if key == glfw.KEY_A and action == glfw.PRESS:
                 if self.show_vector:
-                    glProgramUniform1i(self.demo.render_shader_vector, self.demo.render_shader_vector_vector_type_loc, 1)
+                    glProgramUniform1i(self.demo.render_shader_vector, self.demo.render_shader_vector_vector_type_loc,
+                                       1)
                 glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 1)
             if key == glfw.KEY_S and action == glfw.PRESS:
                 if self.show_vector:
-                    glProgramUniform1i(self.demo.render_shader_vector, self.demo.render_shader_vector_vector_type_loc, 0)
+                    glProgramUniform1i(self.demo.render_shader_vector, self.demo.render_shader_vector_vector_type_loc,
+                                       0)
                 glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 0)
             if key == glfw.KEY_D and action == glfw.PRESS:
                 glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 3)
@@ -288,10 +302,10 @@ class DisplayPort:
                     print("Recording stopped.")
             if key == glfw.KEY_C and action == glfw.PRESS:
                 self.axis = not self.axis
+
         glfw.set_key_callback(self.window, key_press_clb)
 
 
 if __name__ == "__main__":
     dp = DisplayPort()
     dp()
-

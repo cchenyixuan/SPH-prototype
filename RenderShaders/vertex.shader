@@ -5,36 +5,54 @@ out vec4 v_color; // color output
 
 layout(std430, binding=0) buffer Particles{
     // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
+    // x , y , z , voxel_id
+    // vx, vy, vz, mass
+    // wx, wy, wz, rho
+    // ax, ay, az, pressure
     mat4x4 Particle[];
 };
 layout(std430, binding=1) buffer ParticlesSubData{
     // particle inside domain has additional data: t_transfer.xyz, 0.0, 0.0...;
+    // 0 , 0 , 0 , 0
+    // 0 , 0 , 0 , 0
+    // 0 , 0 , 0 , 0
+    // 0 , 0 , 0 , group_id
     mat4x4 ParticleSubData[];
 };
 layout(std430, binding=2) buffer BoundaryParticles{
     // particle at boundary with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
+    // x , y , z , voxel_id
+    // vx, vy, vz, mass
+    // wx, wy, wz, rho
+    // ax, ay, az, pressure
     mat4x4 BoundaryParticle[];
 };
-layout(std430, binding=5) coherent buffer VoxelParticleNumbers{
+layout(std430, binding=3) coherent buffer VoxelParticleNumbers{
     int VoxelParticleNumber[];
 };
-layout(std430, binding=6) coherent buffer VoxelParticleInNumbers{
+layout(std430, binding=4) coherent buffer VoxelParticleInNumbers{
     int VoxelParticleInNumber[];
 };
-layout(std430, binding=7) coherent buffer VoxelParticleOutNumbers{
+layout(std430, binding=5) coherent buffer VoxelParticleOutNumbers{
     int VoxelParticleOutNumber[];
 };
-layout(std430, binding=8) coherent buffer GlobalStatus{
+layout(std430, binding=6) buffer GlobalStatus{
     // simulation global settings and status such as max velocity etc.
     // [n_particle, n_boundary_particle, n_voxel, Inlet1ParticleNumber, Inlet2ParticleNumber, Inlet3ParticleNumber, Inlet1Pointer, Inlet2Pointer, Inlet3Pointer, Inlet1In, Inlet2In, Inlet3In]
     int StatusInt[];
 };
-layout(std430, binding=9) buffer GlobalStatus2{
-    // simulation global settings and status such as max velocity etc.
-    // [self.H, self.R, self.DELTA_T, self.VISCOSITY, self.COHESION, self.ADHESION, voxel_offset_x, voxel_offset_y, voxel_offset_z, Inlet1In_float, Inlet2In_float, Inlet3In_float]
-    float StatusFloat[];
+layout(std430, binding=7) buffer Inlets1{
+    // inlet1 with n particles // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; 0, 0, 0, rho; 0, 0, 0, P;
+    mat4x4 Inlet1[];
 };
-
+layout(std430, binding=8) buffer Inlets2{
+    // inlet2 with n particles // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
+    mat4x4 Inlet2[];
+};
+layout(std430, binding=9) buffer Inlets3{
+    // inlet3 with n particles // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
+    mat4x4 Inlet3[];
+};
 layout(std430, binding=10) coherent buffer Voxels0{
     // each voxel has 182 mat44 and first 2 matrices contains its id, x_offset of h, y_offset of h, z_offset of h; and neighborhood voxel ids
     // other 180 matrices containing current-indoor-particle-ids, particles getting out and particles stepping in
@@ -53,21 +71,12 @@ layout(std430, binding=13) coherent buffer Voxels3{
 layout(std430, binding=14) coherent buffer Voxels4{
     int Voxel4[];
 };
-layout(std430, binding=15) coherent buffer Voxels5{
-    int Voxel5[];
+layout(std430, binding=15) buffer GlobalStatus2{
+    // simulation global settings and status such as max velocity etc.
+    // [self.H, self.R, self.DELTA_T, self.VISCOSITY, self.COHESION, self.ADHESION, voxel_offset_x, voxel_offset_y, voxel_offset_z, Inlet1In_float, Inlet2In_float, Inlet3In_float]
+    float StatusFloat[];
 };
-layout(std430, binding=16) buffer Inlets1{
-    // inlet1 with n particles // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; 0, 0, 0, rho; 0, 0, 0, P;
-    mat4x4 Inlet1[];
-};
-layout(std430, binding=17) buffer Inlets2{
-    // inlet2 with n particles // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
-    mat4x4 Inlet2[];
-};
-layout(std430, binding=18) buffer Inlets3{
-    // inlet3 with n particles // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
-    mat4x4 Inlet3[];
-};
+
 
 const float PI = 3.141592653589793;
 const int n_boundary_particle = 10383;
@@ -76,10 +85,10 @@ const float h = 0.01;
 const float r = 0.0025;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
-const float rest_dense = 1000;
+const float rest_dense = 1000.0;
 const float eos_constant = 32142.0;
-const float delta_t = 0.00005;
-const float viscosity = 0.001;
+const float delta_t = 5e-05;
+const float viscosity = 0.0001;
 const float cohesion = 0.0001;
 const float adhesion = 0.0001;
 const vec3 offset = vec3(-0.434871, -0.690556, -0.245941);
@@ -115,7 +124,7 @@ vec3 get_color_gradient(float ratio, float range){
 }
 
 void main() {
-    if(Particle[v_index][0].w != 0){
+    if(Particle[v_index][0].w != 0.0){
         gl_Position = projection*view*vec4(Particle[v_index][0].xyz, 1.0); // set vertex position, w=1.0
         // int voxel_id = int(round(Particle[v_index][0].w));
         // vec3 voxel_center = vec3(float(Voxel[(voxel_id-1)*voxel_memory_length+1])*h, float(Voxel[(voxel_id-1)*voxel_memory_length+2])*h, float(Voxel[(voxel_id-1)*voxel_memory_length+3])*h);
@@ -139,6 +148,10 @@ void main() {
             case 4:  // kernel value
                 v_color = vec4(get_color_gradient(ParticleSubData[v_index][2].x, 0.02).xyz, 1.0);
         }
+    }
+    else{
+        gl_Position = vec4(0.0);
+        v_color = vec4(0.0);
     }
 
 }

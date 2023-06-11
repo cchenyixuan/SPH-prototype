@@ -7,17 +7,28 @@ out GeometryOutput{
 }g_out;
 
 
-
 layout(std430, binding=0) buffer Particles{
     // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
+    // x , y , z , voxel_id
+    // vx, vy, vz, mass
+    // wx, wy, wz, rho
+    // ax, ay, az, pressure
     mat4x4 Particle[];
 };
 layout(std430, binding=1) buffer ParticlesSubData{
     // particle inside domain has additional data: t_transfer.xyz, 0.0, 0.0...;
+    // 0 , 0 , 0 , 0
+    // 0 , 0 , 0 , 0
+    // 0 , 0 , 0 , 0
+    // 0 , 0 , 0 , group_id
     mat4x4 ParticleSubData[];
 };
 layout(std430, binding=2) buffer BoundaryParticles{
     // particle at boundary with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
+    // x , y , z , voxel_id
+    // vx, vy, vz, mass
+    // wx, wy, wz, rho
+    // ax, ay, az, pressure
     mat4x4 BoundaryParticle[];
 };
 
@@ -43,7 +54,7 @@ uniform mat4 projection;
 uniform mat4 view;
 
 void main() {
-    if(Particle[v_index][0].w != 0){
+    if(Particle[v_index][0].w != 0.0){
         g_out.v_pos = vec4(Particle[v_index][0].xyz, 1.0); // set vertex position, w=1.0
         switch(vector_type){
             case 0:  // velocity
@@ -59,6 +70,10 @@ void main() {
             // new shader same as above, named boundary vector vertex shader, change particle to boundaryparticle
             // rewrite g_out.v_color with pressure and cirection at BP[id][3].xyzw
         }
+    }
+    else{
+        g_out.v_pos = vec4(0.0);
+        g_out.v_color = vec4(0.0);
     }
 
 }

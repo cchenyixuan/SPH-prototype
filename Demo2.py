@@ -3,33 +3,33 @@ import numpy as np
 from OpenGL.GL import *
 from OpenGL.GL.shaders import compileProgram, compileShader
 
-from SpaceDivision import CreateVoxels, CreateParticles, CreateBoundaryParticles, LoadParticleObj
 import time
-from utils.float_to_fraction import find_fraction
+from utils.shader_auto_completion import complete_shader
 
-from project_loader import ProjectTwoPhase, Project
+from project_loader import Project
 
 
 class Demo:
     def __init__(self):
-        self.H = 0.01
-        self.R = 0.0025
-        self.DELTA_T = 0.00005
+        self.H = 0.025
+        self.R = 0.025/5
+        self.c0 = 50  # about 10 times of max velocity in this system ensures the density variation less than 1%
+        self.DELTA_T = 0.000025  # check CFL condition
         self.VISCOSITY = 0.001
         self.COHESION = 0.0001
         self.ADHESION = 0.0001
         self.REST_DENSE = 1000.0
-        self.EOS_CONSTANT = 32142.0
+        self.EOS_CONSTANT = self.c0**2 * self.REST_DENSE / 7  # c0**2*rho0/gamma
         self.VOXEL_MEMORY_LENGTH = 2912  # (2+60+60+60)*16
         self.VOXEL_BLOCK_SIZE = 960  # 60*16
         self.VOXEL_GROUP_SIZE = 300000  # one ssbo could get unstable if size is larger than (2912*4bit)*300000
 
-        self.INLET1_FLUX = 0.0216
+        self.INLET1_FLUX = 5*2.5/100  # S1*Velocity1
         self.INLET2_FLUX = 0
         self.INLET3_FLUX = 0
         self.PARTICLE_VOLUME = np.pi*4/3*self.R**3
 
-        self.project = Project(self.H, self.R, r".\models\frame.obj", r".\models\domain.obj", r".\models\boundary.obj", [r"./models/inlet1.obj", r"./models/inlet2.obj", r"./models/inlet3.obj"])
+        self.project = Project(self.H, self.R, self.REST_DENSE, r"C:\Users\cchen\PycharmProjects\SPH-prototype-multi-version\models\voxel_buffer.npy", [-1.2468699, -0.781989, -1.790468], r".\models\frame.obj", r".\models\domain.obj", r".\models\boundary.obj", [(r"./models/inlet.obj", [ 0.82732422*2.5, 0.14830143*2.5,  -0.54179454*2.5]), (r"./models/inlet2.obj", [0.0, 0.0, 0.0]), (r"./models/inlet3.obj", [0.0, 0.0, 0.0])])
         self.voxels = self.project.voxels
         self.offset = self.project.offset  # voxel offset
         self.particles = self.project.particles
@@ -59,21 +59,43 @@ class Demo:
         self.global_status = np.array((self.particle_number, self.boundary_particle_number, self.voxel_number, self.inlet1_particles.shape[0]//4, self.inlet2_particles.shape[0]//4, self.inlet3_particles.shape[0]//4, 0, 0, 0, 0, 0, 0), dtype=np.int32)
         self.global_status_float = np.array((self.H, self.R, self.DELTA_T, self.VISCOSITY, self.COHESION, self.ADHESION, *self.offset, 0.0, 0.0, 0.0), dtype=np.float32)
 
-
-
+        complete_shader({
+                "PI": np.pi,
+                "n_boundary_particle": self.boundary_particle_number,
+                "n_voxel": self.voxel_number,
+                "h": self.H,
+                "r": self.R,
+                "voxel_memory_length": self.VOXEL_MEMORY_LENGTH,
+                "voxel_block_size": self.VOXEL_BLOCK_SIZE,
+                "rest_dense": self.REST_DENSE,
+                "eos_constant": self.EOS_CONSTANT,
+                "delta_t": self.DELTA_T,
+                "viscosity": self.VISCOSITY,
+                "cohesion": self.COHESION,
+                "adhesion": self.ADHESION,
+                "offset": self.offset,
+                "VOXEL_GROUP_SIZE": self.VOXEL_GROUP_SIZE,
+                "particle_volume": self.PARTICLE_VOLUME,
+                "Coeff_Poly6_2d": 4 / (np.pi * self.H ** 8),
+                "Coeff_Poly6_3d": 315 / (64 * np.pi * self.H ** 9),
+                "Coeff_Spiky_2d": 10 / (np.pi * self.H ** 5),
+                "Coeff_Spiky_3d": 15 / (np.pi * self.H ** 6),
+                "Coeff_Viscosity_2d": 40 / (np.pi * self.H ** 2),
+                "Coeff_Viscosity_3d": 15 / (2 * np.pi * self.H ** 3)
+        })
         # initialize OpenGL
         # particles buffer
         self.sbo_particles = glGenBuffers(1)
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.sbo_particles)
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, self.sbo_particles)
-        glNamedBufferStorage(self.sbo_particles, 80000000, np.zeros((5000000, 16), dtype=np.float32), GL_DYNAMIC_STORAGE_BIT)
+        glNamedBufferStorage(self.sbo_particles, np.zeros((5000000, 16), dtype=np.float32).nbytes, np.zeros((5000000, 16), dtype=np.float32), GL_DYNAMIC_STORAGE_BIT)
         glNamedBufferSubData(self.sbo_particles, 0, self.particles.nbytes, self.particles)
 
         # particles sub data buffer
         self.sbo_particles_sub_data = glGenBuffers(1)
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.sbo_particles_sub_data)
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, self.sbo_particles_sub_data)
-        glNamedBufferStorage(self.sbo_particles_sub_data, 80000000, np.zeros((5000000, 16), dtype=np.float32), GL_DYNAMIC_STORAGE_BIT)
+        glNamedBufferStorage(self.sbo_particles_sub_data, np.zeros((5000000, 16), dtype=np.float32).nbytes, np.zeros((5000000, 16), dtype=np.float32), GL_DYNAMIC_STORAGE_BIT)
         glNamedBufferSubData(self.sbo_particles_sub_data, 0, self.particles_sub_data.nbytes, self.particles_sub_data)
 
         # boundary buffer
@@ -92,50 +114,56 @@ class Demo:
         # voxel_particle_numbers buffer
         self.sbo_voxel_particle_numbers = glGenBuffers(1)
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.sbo_voxel_particle_numbers)
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, self.sbo_voxel_particle_numbers)
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, self.sbo_voxel_particle_numbers)
         glNamedBufferStorage(self.sbo_voxel_particle_numbers, self.voxel_particle_numbers.nbytes, self.voxel_particle_numbers, GL_DYNAMIC_STORAGE_BIT)
 
         # voxel_particle_in_numbers buffer
         self.sbo_voxel_particle_in_numbers = glGenBuffers(1)
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.sbo_voxel_particle_in_numbers)
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, self.sbo_voxel_particle_in_numbers)
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, self.sbo_voxel_particle_in_numbers)
         glNamedBufferStorage(self.sbo_voxel_particle_in_numbers, self.voxel_particle_numbers.nbytes, self.voxel_particle_numbers, GL_DYNAMIC_STORAGE_BIT)
 
         # voxel_particle_out_numbers buffer
         self.sbo_voxel_particle_out_numbers = glGenBuffers(1)
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.sbo_voxel_particle_out_numbers)
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, self.sbo_voxel_particle_out_numbers)
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, self.sbo_voxel_particle_out_numbers)
         glNamedBufferStorage(self.sbo_voxel_particle_out_numbers, self.voxel_particle_numbers.nbytes, self.voxel_particle_numbers, GL_DYNAMIC_STORAGE_BIT)
 
         # global_status buffer
         self.sbo_global_status = glGenBuffers(1)
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.sbo_global_status)
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, self.sbo_global_status)
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, self.sbo_global_status)
         glNamedBufferStorage(self.sbo_global_status, self.global_status.nbytes, self.global_status, GL_DYNAMIC_STORAGE_BIT)
 
         # global_status2 buffer
         self.sbo_global_status2 = glGenBuffers(1)
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.sbo_global_status2)
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 9, self.sbo_global_status2)
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 15, self.sbo_global_status2)
         glNamedBufferStorage(self.sbo_global_status2, self.global_status_float.nbytes, self.global_status_float, GL_DYNAMIC_STORAGE_BIT)
 
         # inlet1 buffer
+        if self.inlet1_particles.nbytes == 0:
+            self.inlet1_particles = np.zeros((4, 4), dtype=np.float32)
         self.sbo_inlet1 = glGenBuffers(1)
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.sbo_inlet1)
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 16, self.sbo_inlet1)
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, self.sbo_inlet1)
         glNamedBufferStorage(self.sbo_inlet1, self.inlet1_particles.nbytes, self.inlet1_particles, GL_DYNAMIC_STORAGE_BIT)
 
         # inlet2 buffer
+        if self.inlet2_particles.nbytes == 0:
+            self.inlet2_particles = np.zeros((4, 4), dtype=np.float32)
         self.sbo_inlet2 = glGenBuffers(1)
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.sbo_inlet2)
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 17, self.sbo_inlet2)
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, self.sbo_inlet2)
         glNamedBufferStorage(self.sbo_inlet2, self.inlet2_particles.nbytes, self.inlet2_particles,
                              GL_DYNAMIC_STORAGE_BIT)
 
         # inlet3 buffer
+        if self.inlet3_particles.nbytes == 0:
+            self.inlet3_particles = np.zeros((4, 4), dtype=np.float32)
         self.sbo_inlet3 = glGenBuffers(1)
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.sbo_inlet3)
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 18, self.sbo_inlet3)
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 9, self.sbo_inlet3)
         glNamedBufferStorage(self.sbo_inlet3, self.inlet3_particles.nbytes, self.inlet3_particles, GL_DYNAMIC_STORAGE_BIT)
 
         # vao of indices
@@ -152,28 +180,28 @@ class Demo:
 
         # compute shader 0
         self.compute_shader_0 = compileProgram(
-            compileShader(open("Solvers/compute_0_init_boundary_particles.shader", "rb"), GL_COMPUTE_SHADER))
+            compileShader(open("runtime/compute_0_init_boundary_particles.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 1
         self.compute_shader_1 = compileProgram(
-            compileShader(open("Solvers/compute_1_init_domain_particles.shader", "rb"), GL_COMPUTE_SHADER))
+            compileShader(open("runtime/compute_1_init_domain_particles.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 1i
         self.compute_shader_1i = compileProgram(
-            compileShader(open("Solvers/compute_1_init_inlet_particles.shader", "rb"), GL_COMPUTE_SHADER))
+            compileShader(open("runtime/compute_1_init_inlet_particles.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 2a
         self.compute_shader_2a = compileProgram(
-            compileShader(open("Solvers/compute_2_boundary_density_pressure_solver.shader", "rb"), GL_COMPUTE_SHADER))
+            compileShader(open("runtime/compute_2_boundary_density_pressure_solver.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 2
         self.compute_shader_2 = compileProgram(
-            compileShader(open("Solvers/compute_2_density_pressure_solver.shader", "rb"), GL_COMPUTE_SHADER))
+            compileShader(open("runtime/compute_2_density_pressure_solver.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 3
         self.compute_shader_3 = compileProgram(
-            compileShader(open("Solvers/compute_3_force_solver.shader", "rb"), GL_COMPUTE_SHADER))
+            compileShader(open("runtime/compute_3_force_solver.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 4
         self.compute_shader_4 = compileProgram(
-            compileShader(open("Solvers/compute_4_integrate_solver.shader", "rb"), GL_COMPUTE_SHADER))
+            compileShader(open("runtime/compute_4_integrate_solver.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 5
         self.compute_shader_5 = compileProgram(
-            compileShader(open("Solvers/compute_5_voxel_upgrade_solver.shader", "rb"), GL_COMPUTE_SHADER))
+            compileShader(open("runtime/compute_5_voxel_upgrade_solver.shader", "rb"), GL_COMPUTE_SHADER))
         # # compute shader a
         # self.compute_shader_a = compileProgram(
         #     compileShader(open("./MovingBoundaryShaders/compute_a_moving_boundary.shader", "rb"), GL_COMPUTE_SHADER))
@@ -182,8 +210,8 @@ class Demo:
         # glUniform1i(self.compute_shader_a_current_step_loc, 0)
 
         # render shader
-        self.render_shader = compileProgram(compileShader(open("vertex.shader", "rb"), GL_VERTEX_SHADER),
-                                            compileShader(open("fragment.shader", "rb"), GL_FRAGMENT_SHADER))
+        self.render_shader = compileProgram(compileShader(open("runtime/vertex.shader", "rb"), GL_VERTEX_SHADER),
+                                            compileShader(open("runtime/fragment.shader", "rb"), GL_FRAGMENT_SHADER))
         glUseProgram(self.render_shader)
         self.projection_loc = glGetUniformLocation(self.render_shader, "projection")
         self.view_loc = glGetUniformLocation(self.render_shader, "view")
@@ -191,37 +219,25 @@ class Demo:
 
         glUniform1i(self.render_shader_color_type_loc, 0)
         # render shader vector
-        self.render_shader_vector = compileProgram(compileShader(open("VectorShaders/vector_vertex.shader", "rb"), GL_VERTEX_SHADER),
-                                                   compileShader(open("VectorShaders/vector_geometry.shader", "rb"), GL_GEOMETRY_SHADER),
-                                                   compileShader(open("VectorShaders/vector_fragment.shader", "rb"), GL_FRAGMENT_SHADER))
+        self.render_shader_vector = compileProgram(compileShader(open("runtime/vector_vertex.shader", "rb"), GL_VERTEX_SHADER),
+                                                   compileShader(open("runtime/vector_geometry.shader", "rb"), GL_GEOMETRY_SHADER),
+                                                   compileShader(open("runtime/vector_fragment.shader", "rb"), GL_FRAGMENT_SHADER))
         glUseProgram(self.render_shader_vector)
-        self.render_shader_vector_n_particle_loc = glGetUniformLocation(self.render_shader_vector, "n_particle")
-        self.render_shader_vector_n_voxel_loc = glGetUniformLocation(self.render_shader_vector, "n_voxel")
-        self.render_shader_vector_h_loc = glGetUniformLocation(self.render_shader_vector, "h")
         self.vector_projection_loc = glGetUniformLocation(self.render_shader_vector, "projection")
         self.vector_view_loc = glGetUniformLocation(self.render_shader_vector, "view")
         self.render_shader_vector_vector_type_loc = glGetUniformLocation(self.render_shader_vector, "vector_type")
 
-        glUniform1i(self.render_shader_vector_n_particle_loc, int(self.particle_number))
-        glUniform1i(self.render_shader_vector_n_voxel_loc, int(self.voxel_number))
-        glUniform1f(self.render_shader_vector_h_loc, self.H)
         glUniform1i(self.render_shader_vector_vector_type_loc, 0)
 
 
 
         # render shader boundary
-        self.render_shader_boundary = compileProgram(compileShader(open("boundary_vertex.shader", "rb"), GL_VERTEX_SHADER),
-                                                     compileShader(open("fragment.shader", "rb"), GL_FRAGMENT_SHADER))
+        self.render_shader_boundary = compileProgram(compileShader(open("runtime/boundary_vertex.shader", "rb"), GL_VERTEX_SHADER),
+                                                     compileShader(open("runtime/fragment.shader", "rb"), GL_FRAGMENT_SHADER))
         glUseProgram(self.render_shader_boundary)
-        self.render_shader_boundary_n_particle_loc = glGetUniformLocation(self.render_shader_boundary, "n_particle")
-        self.render_shader_boundary_n_voxel_loc = glGetUniformLocation(self.render_shader_boundary, "n_voxel")
-        self.render_shader_boundary_h_loc = glGetUniformLocation(self.render_shader_boundary, "h")
         self.boundary_projection_loc = glGetUniformLocation(self.render_shader_boundary, "projection")
         self.boundary_view_loc = glGetUniformLocation(self.render_shader_boundary, "view")
         #
-        glUniform1i(self.render_shader_boundary_n_particle_loc, int(self.particle_number))
-        glUniform1i(self.render_shader_boundary_n_voxel_loc, int(self.voxel_number))
-        glUniform1f(self.render_shader_boundary_h_loc, self.H)
 
         # # compute shader for voxel debug
         # self.compute_shader_voxel = compileProgram(
@@ -231,18 +247,10 @@ class Demo:
 #
         # glUniform1i(self.compute_shader_voxel_id_loc, 0)
         # render shader for voxel
-        self.render_shader_voxel = compileProgram(compileShader(open("VoxelShaders/voxel_vertex.shader", "rb"), GL_VERTEX_SHADER),
-                                                  compileShader(open("VoxelShaders/voxel_geometry.shader", "rb"), GL_GEOMETRY_SHADER),
-                                                  compileShader(open("VoxelShaders/voxel_fragment.shader", "rb"), GL_FRAGMENT_SHADER))
+        self.render_shader_voxel = compileProgram(compileShader(open("runtime/voxel_vertex.shader", "rb"), GL_VERTEX_SHADER),
+                                                  compileShader(open("runtime/voxel_geometry.shader", "rb"), GL_GEOMETRY_SHADER),
+                                                  compileShader(open("runtime/voxel_fragment.shader", "rb"), GL_FRAGMENT_SHADER))
         glUseProgram(self.render_shader_voxel)
-
-        self.render_shader_voxel_n_particle_loc = glGetUniformLocation(self.render_shader_voxel, "n_particle")
-        self.render_shader_voxel_n_voxel_loc = glGetUniformLocation(self.render_shader_voxel, "n_voxel")
-        self.render_shader_voxel_h_loc = glGetUniformLocation(self.compute_shader_1, "h")
-
-        glUniform1i(self.render_shader_voxel_n_particle_loc, int(self.particle_number))
-        glUniform1i(self.render_shader_voxel_n_voxel_loc, int(self.voxel_number))
-        glUniform1f(self.render_shader_voxel_h_loc, self.H)
 
         self.voxel_projection_loc = glGetUniformLocation(self.render_shader_voxel, "projection")
         self.voxel_view_loc = glGetUniformLocation(self.render_shader_voxel, "view")
@@ -256,7 +264,7 @@ class Demo:
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
 
             glUseProgram(self.compute_shader_1)
-            glDispatchCompute(self.particle_number//4+1, 2, 2)
+            glDispatchCompute(self.particle_number, 1, 1)
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
 
             glUseProgram(self.compute_shader_1i)
@@ -288,9 +296,9 @@ class Demo:
             status_float = np.empty((48,), dtype=np.byte)
             glGetNamedBufferSubData(self.sbo_global_status2, 0, 48, status_float)
             status_float = np.frombuffer(status_float, dtype=np.float32)
-            status_float[9] += 4.0
-            status_float[10] += 4.0
-            status_float[11] += 11.0
+            status_float[9] += self.INLET1_FLUX/self.PARTICLE_VOLUME*self.DELTA_T
+            status_float[10] += self.INLET2_FLUX/self.PARTICLE_VOLUME*self.DELTA_T
+            status_float[11] += self.INLET3_FLUX/self.PARTICLE_VOLUME*self.DELTA_T
 
             status_int = np.empty((48,), dtype=np.byte)
             glGetNamedBufferSubData(self.sbo_global_status, 0, 48, status_int)
@@ -308,6 +316,7 @@ class Demo:
             status_float[11] -= int(status_float[11])
             glNamedBufferSubData(self.sbo_global_status2, 0, 48, status_float)
             glNamedBufferSubData(self.sbo_global_status, 0, 48, status_int)
+            # print(status_int[0])
             # print(status_int[9:12])
             # print(status_float[9:12])
             # print(status_int)

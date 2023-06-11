@@ -6,5 +6,5 @@ out vec4 o_color;
 
 void main() {
     // set output color to v_color
-    o_color = vec4(abs(v_color.xyz)/length(v_color.xyz), 1.0);
+    o_color = vec4(abs(v_color.xyz)/(0.0001+length(v_color.xyz)), 1.0);
 }

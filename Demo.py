@@ -187,8 +187,8 @@ class Demo:
         glUniform1i(self.compute_shader_a_current_step_loc, 0)
 
         # render shader
-        self.render_shader = compileProgram(compileShader(open("vertex.shader", "rb"), GL_VERTEX_SHADER),
-                                            compileShader(open("fragment.shader", "rb"), GL_FRAGMENT_SHADER))
+        self.render_shader = compileProgram(compileShader(open("RenderShaders/vertex.shader", "rb"), GL_VERTEX_SHADER),
+                                            compileShader(open("RenderShaders/fragment.shader", "rb"), GL_FRAGMENT_SHADER))
         glUseProgram(self.render_shader)
         self.render_shader_n_particle_loc = glGetUniformLocation(self.render_shader, "n_particle")
         self.render_shader_n_voxel_loc = glGetUniformLocation(self.render_shader, "n_voxel")
@@ -222,8 +222,8 @@ class Demo:
 
 
         # render shader boundary
-        self.render_shader_boundary = compileProgram(compileShader(open("boundary_vertex.shader", "rb"), GL_VERTEX_SHADER),
-                                                     compileShader(open("fragment.shader", "rb"), GL_FRAGMENT_SHADER))
+        self.render_shader_boundary = compileProgram(compileShader(open("RenderShaders/boundary_vertex.shader", "rb"), GL_VERTEX_SHADER),
+                                                     compileShader(open("RenderShaders/fragment.shader", "rb"), GL_FRAGMENT_SHADER))
         glUseProgram(self.render_shader_boundary)
         self.render_shader_boundary_n_particle_loc = glGetUniformLocation(self.render_shader_boundary, "n_particle")
         self.render_shader_boundary_n_voxel_loc = glGetUniformLocation(self.render_shader_boundary, "n_voxel")
