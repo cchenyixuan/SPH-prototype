@@ -16,6 +16,9 @@ layout(std430, binding=1) buffer ParticlesSubData{
     // 0 , 0 , 0 , group_id
     mat4x4 ParticleSubData[];
 };
+layout(std430, binding=3) coherent buffer VoxelParticleNumbers{
+    int VoxelParticleNumber[];
+};
 layout(std430, binding=6) coherent buffer GlobalStatus{
     // simulation global settings and status such as max velocity etc.
     // [n_particle, n_boundary_particle, n_voxel, Inlet1ParticleNumber, Inlet2ParticleNumber, Inlet3ParticleNumber, Inlet1Pointer, Inlet2Pointer, Inlet3Pointer, Inlet1In, Inlet2In, Inlet3In]
@@ -54,15 +57,15 @@ int particle_index = int(gid)+1;
 float particle_index_float = float(particle_index);
 
 const float PI = 3.141592653589793;
-const int n_voxel = 48235;
-const float h = 0.01;
+const int n_voxel = 13122;
+const float h = 0.025;
 const float r = 0.0025;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
-const float delta_t = 0.00005;
-const vec3 offset = vec3(-0.434871, -0.690556, -0.245941);
+const float delta_t = 0.0000005;
+const vec3 offset = vec3(-1.0, -0.01, -1.0);
 const int VOXEL_GROUP_SIZE = 300000;
-const float particle_volume = 6.545e-08;
+const float particle_volume = 2.4e-05;
 
 
 int get_voxel_data(int voxel_id, int pointer){
@@ -162,7 +165,7 @@ int set_voxel_data_atomic(int voxel_id, int pointer, int value){
 
 void AllocateParticles(){
     // position of current particle focused
-    vec3 particle_pos = Particle[particle_index-1][0].xyz;
+    vec2 particle_pos = Particle[particle_index-1][0].xz;
     // for all voxels
     for(int i=0; i < n_voxel; ++i){
         // current voxel center position
@@ -170,8 +173,7 @@ void AllocateParticles(){
         // current particle inside current voxel (vx-2/h<=px<vx+2/h)
         if(
             voxel_pos.x-h/2<=particle_pos.x && particle_pos.x<voxel_pos.x+h/2 &&
-            voxel_pos.y-h/2<=particle_pos.y && particle_pos.y<voxel_pos.y+h/2 &&
-            voxel_pos.z-h/2<=particle_pos.z && particle_pos.z<voxel_pos.z+h/2
+            voxel_pos.z-h/2<=particle_pos.y && particle_pos.y<voxel_pos.z+h/2
             ){
                 // one particle found inside current voxel, get its slot id (start from 0) and add 1 to next slot id
                 int c = atomicAdd(VoxelParticleNumber[i], 1);

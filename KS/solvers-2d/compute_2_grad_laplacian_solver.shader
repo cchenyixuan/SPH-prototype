@@ -54,16 +54,22 @@ int particle_index = int(gid)+1;
 float particle_index_float = float(particle_index);
 
 const float PI = 3.141592653589793;
-const int n_voxel = 48235;
-const float h = 0.01;
+const int n_voxel = 13122;
+const float h = 0.025;
 const float r = 0.0025;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
-const float delta_t = 0.00005;
-const vec3 offset = vec3(-0.434871, -0.690556, -0.245941);
+const float delta_t = 0.0000005;
+const vec3 offset = vec3(-1.0, -0.01, -1.0);
 const int VOXEL_GROUP_SIZE = 300000;
-const float particle_volume = 6.545e-08;
-
+const float particle_volume = 2.4e-05;
+float h2 = h*h;
+float Coeff_Poly6_2d = 4 / (PI * pow(h, 8));
+float Coeff_Poly6_3d = 315 / (64 * PI * pow(h, 9));
+float Coeff_Spiky_2d = 10 / (PI * pow(h, 5));
+float Coeff_Spiky_3d = 15 / (PI * pow(h, 6));
+float Coeff_Viscosity_2d = 40 / (PI * pow(h, 2));
+float Coeff_Viscosity_3d = 15 / (2 * PI * pow(h, 3));
 
 
 // poly6
@@ -102,6 +108,7 @@ float spiky_3d(float rij, float h){
 vec2 grad_spiky_2d(float x, float y, float rij, float h){
     if (rij > h){return vec2(0.0, 0.0);}
     float w_prime = - 3 * Coeff_Spiky_2d * pow((h - rij),2);
+    if(rij == 0){return vec2(0.0, 0.0);}
     return vec2(w_prime * x / rij, w_prime * y / rij);
 }
 vec3 grad_spiky_3d(float x, float y, float z, float rij, float h){
@@ -243,7 +250,7 @@ void ComputeParticleProperties(){
     // DEBUG FOR KERNEL VALUE
     float kernel_value = 0.0;
     // position of current particle focused
-    vec3 particle_pos = Particle[particle_index-1][0].xyz;
+    vec2 particle_pos = Particle[particle_index-1][0].xz;
     // delete its grad and laplacian last time, optional
     Particle[particle_index-1][1] = vec4(0.0);
     Particle[particle_index-1][2].xy = vec2(0.0);
@@ -261,35 +268,21 @@ void ComputeParticleProperties(){
         else if (index_j>0){
 
             // distance rij
-            float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
+            float rij = distance(particle_pos, Particle[index_j-1][0].xz);
+            vec2 xij = particle_pos - Particle[index_j-1][0].xz;
             // distance less than h
-            if (rij<h){
+            if (rij == 0){continue;}
+            else if (rij<h){
+                // kernel
+                kernel_value += particle_volume*lap_viscosity_2d(rij, h);
                 // grad u
                 Particle[particle_index-1][1].xy += particle_volume*Particle[index_j-1][2].z * grad_spiky_2d(xij.x, xij.y, rij, h);
                 // grad v
                 Particle[particle_index-1][1].zw += particle_volume*Particle[index_j-1][2].w * grad_spiky_2d(xij.x, xij.y, rij, h);
                 // lap u
-                Particle[particle_index-1][2].x += particle_volume*Particle[index_j-1][2].z * lap_viscosity_2d(rij, h);
+                Particle[particle_index-1][2].x -= particle_volume*Particle[index_j-1][2].z * 2*length(grad_poly6_2d(xij.x, xij.y, rij, h))/rij;
                 // lap v
-                Particle[particle_index-1][2].y += particle_volume*Particle[index_j-1][2].w * lap_viscosity_2d(rij, h);
-            }
-        }
-        // P_j is a boundary particle
-        else if (index_j<0){
-            // reverse index_j
-            index_j = -index_j;
-            // distance rij
-            float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
-            // distance less than h
-            if (rij<h){
-                // grad u
-                Particle[particle_index-1][1].xy += particle_volume*BoundaryParticle[index_j-1][2].z * grad_spiky_2d(xij.x, xij.y, rij, h);
-                // grad v
-                Particle[particle_index-1][1].zw += particle_volume*BoundaryParticle[index_j-1][2].w * grad_spiky_2d(xij.x, xij.y, rij, h);
-                // lap u
-                Particle[particle_index-1][2].x += particle_volume*BoundaryParticle[index_j-1][2].z * lap_viscosity_2d(rij, h);
-                // lap v
-                Particle[particle_index-1][2].y += particle_volume*BoundaryParticle[index_j-1][2].w * lap_viscosity_2d(rij, h);
+                Particle[particle_index-1][2].y -= particle_volume*Particle[index_j-1][2].w * 2*length(grad_poly6_2d(xij.x, xij.y, rij, h))/rij;
             }
         }
 
@@ -309,34 +302,21 @@ void ComputeParticleProperties(){
                 // P_j is a domain particle
                 else if (index_j>0){
                     // distance rij
-                    float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
+                    float rij = distance(particle_pos, Particle[index_j-1][0].xz);
+                    vec2 xij = particle_pos - Particle[index_j-1][0].xz;
                     // distance less than h
-                    if (rij<h){
+                    if (rij == 0){continue;}
+                    else if (rij<h){
+                        // kernel
+                        kernel_value += particle_volume*lap_viscosity_2d(rij, h);
                         // grad u
                         Particle[particle_index-1][1].xy += particle_volume*Particle[index_j-1][2].z * grad_spiky_2d(xij.x, xij.y, rij, h);
                         // grad v
                         Particle[particle_index-1][1].zw += particle_volume*Particle[index_j-1][2].w * grad_spiky_2d(xij.x, xij.y, rij, h);
                         // lap u
-                        Particle[particle_index-1][2].x += particle_volume*Particle[index_j-1][2].z * lap_viscosity_2d(rij, h);
+                        Particle[particle_index-1][2].x -= particle_volume*Particle[index_j-1][2].z * 2*length(grad_poly6_2d(xij.x, xij.y, rij, h))/rij;
                         // lap v
-                        Particle[particle_index-1][2].y += particle_volume*Particle[index_j-1][2].w * lap_viscosity_2d(rij, h);
-                    }
-                }
-                else if (index_j<0){
-                    // reverse index_j
-                    index_j = -index_j;
-                    // distance rij
-                    float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
-                    // distance less than h
-                    if (rij<h){
-                        // grad u
-                        Particle[particle_index-1][1].xy += particle_volume*BoundaryParticle[index_j-1][2].z * grad_spiky_2d(xij.x, xij.y, rij, h);
-                        // grad v
-                        Particle[particle_index-1][1].zw += particle_volume*BoundaryParticle[index_j-1][2].w * grad_spiky_2d(xij.x, xij.y, rij, h);
-                        // lap u
-                        Particle[particle_index-1][2].x += particle_volume*BoundaryParticle[index_j-1][2].z * lap_viscosity_2d(rij, h);
-                        // lap v
-                        Particle[particle_index-1][2].y += particle_volume*BoundaryParticle[index_j-1][2].w * lap_viscosity_2d(rij, h);
+                        Particle[particle_index-1][2].y -= particle_volume*Particle[index_j-1][2].w * 2*length(grad_poly6_2d(xij.x, xij.y, rij, h))/rij;
                     }
                 }
 
@@ -344,6 +324,9 @@ void ComputeParticleProperties(){
 
         }
     }
+    // Particle[particle_index-1][2].x /= kernel_value;
+    //Particle[particle_index-1][2].y /= kernel_value;
+
 }
 
 void main() {
