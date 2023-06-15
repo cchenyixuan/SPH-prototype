@@ -5,11 +5,12 @@ import pyrr
 import numpy as np
 from OpenGL.GL import *
 import glfw
-import Demo2
+import Demo
 from camera import Camera
 from PIL import Image
 from Coordinates import Coord
 import os
+from utils.terminal import Console
 
 console = False
 console_buffer = """>>>"""
@@ -17,6 +18,7 @@ console_buffer = """>>>"""
 
 class DisplayPort:
     def __init__(self):
+        self.console = threading.Thread(target=Console(self))
         glfw.init()
         self.window = glfw.create_window(1920, 1080, "Console", None, None)
         glfw.set_window_pos(self.window, 0, 30)
@@ -36,7 +38,6 @@ class DisplayPort:
         self.current_step = 0
         self.counter = 0
         self.camera = Camera()
-        self.run_time = 0.0
 
         self.view = self.camera()
         self.view_changed = False
@@ -45,11 +46,11 @@ class DisplayPort:
 
     def __call__(self, *args, **kwargs):
         glfw.make_context_current(self.window)
-
+        self.console.start()
         self.coordinates = Coord()
         self.three_d_cursor = Coord(r"Components/3d_cursor.obj")
 
-        self.demo = Demo2.Demo()
+        self.demo = Demo.Demo()
         glUseProgram(self.demo.render_shader_voxel)
         glUniformMatrix4fv(self.demo.voxel_projection_loc, 1, GL_FALSE, self.camera.projection)
         glUniformMatrix4fv(self.demo.voxel_view_loc, 1, GL_FALSE, self.camera.view)
@@ -86,74 +87,20 @@ class DisplayPort:
             # render codes
             self.demo(self.counter, pause=self.pause, show_vector=self.show_vector, show_boundary=self.show_boundary,
                       show_voxel=self.show_voxel)
-            self.run_time += self.demo.DELTA_T
-            if self.current_step % 4000 == 0 and self.current_step!=0:
+            # export boundary_data
+            if self.current_step % 4000 == 0 and self.current_step != 0:
                 print("current step: ", self.current_step)
                 self.save_data()
             if not self.pause:
                 self.current_step += 1
-            # glUseProgram(self.demo.compute_shader_a)
-            # glUniform1i(self.demo.compute_shader_a_current_step_loc, self.current_step)
-            """
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.demo.sbo_particles)
-            a0 = np.frombuffer(glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, self.demo.particles.nbytes),
-                               dtype=np.float32)
-            a = np.reshape(a0, (-1, 4))
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.demo.sbo_boundary_particles)
-            b0 = np.frombuffer(glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, self.demo.boundary_particles.nbytes),
-                               dtype=np.float32)
-            b = np.reshape(b0, (-1, 4))
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.demo.sbo_voxels)
-            c0 = np.frombuffer(glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, self.demo.voxels.nbytes),
-                               dtype=np.int32)
-            c = np.reshape(c0, (-1, 4))
-            """
-            """
-            total = 0
-            total_after = 0
-            total_in = 0
-            total_out = 0
-            for i in range(self.demo.voxel_number):
-                buf = c[i * 80: i * 80 + 80]
-                _origin = buf[8:32].reshape((96,))
-                _out = buf[32:56].reshape((96,))
-                _in = buf[56:80].reshape((96,))
-                n_ = 0
-                n_o = 0
-                n_i = 0
-                for j in range(96):
-                    if _origin[j] != 0:
-                        n_ += 1
-                    if _out[j] != 0:
-                        n_o += 1
-                    if _in[j] != 0:
-                        n_i += 1
-                print(n_, n_o, n_i)
-                total += n_
-                total_after += n_
-                total_after += -n_o
-                total_after += n_i
-                total_in += n_i
-                total_out += n_o
-            print(total, total_after, total_in, total_out)
-            """
-            # count = 0
-            # for item in a0:
-            #     if item != 0:
-            #         count +=1
-            # print(count, self.demo.particle_number)
-            # print(a)
-
+            # camera update
             if self.view_changed:
-                glProgramUniformMatrix4fv(self.demo.render_shader_voxel, self.demo.voxel_view_loc, 1, GL_FALSE,
-                                          self.view)
+                glProgramUniformMatrix4fv(self.demo.render_shader_voxel, self.demo.voxel_view_loc, 1, GL_FALSE, self.view)
                 glProgramUniformMatrix4fv(self.demo.render_shader, self.demo.view_loc, 1, GL_FALSE, self.view)
-                glProgramUniformMatrix4fv(self.demo.render_shader_boundary, self.demo.boundary_view_loc, 1, GL_FALSE,
-                                          self.view)
-                glProgramUniformMatrix4fv(self.demo.render_shader_vector, self.demo.vector_view_loc, 1, GL_FALSE,
-                                          self.view)
+                glProgramUniformMatrix4fv(self.demo.render_shader_boundary, self.demo.boundary_view_loc, 1, GL_FALSE, self.view)
+                glProgramUniformMatrix4fv(self.demo.render_shader_vector, self.demo.vector_view_loc, 1, GL_FALSE, self.view)
                 self.view_changed = False
-            # time.sleep(0.02)
+            # animation
             if self.record:
                 if self.current_step % 100 == 0:
                     self.save_frames(f"tmp/{self.current_step//100}.jpg")
@@ -304,6 +251,13 @@ class DisplayPort:
                 self.axis = not self.axis
 
         glfw.set_key_callback(self.window, key_press_clb)
+
+    @staticmethod
+    def get_gpu_data(buffer, offset, size, dtype):
+        data = np.empty((size,), dtype=np.byte)
+        glGetNamedBufferSubData(buffer, offset, size, data)
+        data = np.frombuffer(data, dtype=dtype)
+        return data
 
 
 if __name__ == "__main__":

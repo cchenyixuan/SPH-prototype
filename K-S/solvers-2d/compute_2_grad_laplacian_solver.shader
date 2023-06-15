@@ -1,11 +1,11 @@
 #version 460 compatibility
 
 layout(std430, binding=0) buffer Particles{
-    // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
-    // x , y , z , voxel_id
-    // vx, vy, vz, mass
-    // wx, wy, wz, rho
-    // ax, ay, az, pressure
+    // particle inside domain with x, y, 0, voxel_id; ux, uy, 0, 0; vx, vy, 0, 0; aux, auy, avx, avy;
+    // x , y , 0 , voxel_id
+    // grad(u).x, grad(u).y, grad(v).x, grad(v).y
+    // lap(u), lap(v), u, v
+    // du/dt.x, du/dt.y, 0.0, 0.0
     mat4x4 Particle[];
 };
 layout(std430, binding=1) buffer ParticlesSubData{
@@ -16,39 +16,10 @@ layout(std430, binding=1) buffer ParticlesSubData{
     // 0 , 0 , 0 , group_id
     mat4x4 ParticleSubData[];
 };
-layout(std430, binding=2) buffer BoundaryParticles{
-    // particle at boundary with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
-    // x , y , z , voxel_id
-    // vx, vy, vz, mass
-    // wx, wy, wz, rho
-    // ax, ay, az, pressure
-    mat4x4 BoundaryParticle[];
-};
-layout(std430, binding=3) coherent buffer VoxelParticleNumbers{
-    int VoxelParticleNumber[];
-};
-layout(std430, binding=4) coherent buffer VoxelParticleInNumbers{
-    int VoxelParticleInNumber[];
-};
-layout(std430, binding=5) coherent buffer VoxelParticleOutNumbers{
-    int VoxelParticleOutNumber[];
-};
-layout(std430, binding=6) buffer GlobalStatus{
+layout(std430, binding=6) coherent buffer GlobalStatus{
     // simulation global settings and status such as max velocity etc.
     // [n_particle, n_boundary_particle, n_voxel, Inlet1ParticleNumber, Inlet2ParticleNumber, Inlet3ParticleNumber, Inlet1Pointer, Inlet2Pointer, Inlet3Pointer, Inlet1In, Inlet2In, Inlet3In]
     int StatusInt[];
-};
-layout(std430, binding=7) buffer Inlets1{
-    // inlet1 with n particles // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; 0, 0, 0, rho; 0, 0, 0, P;
-    mat4x4 Inlet1[];
-};
-layout(std430, binding=8) buffer Inlets2{
-    // inlet2 with n particles // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
-    mat4x4 Inlet2[];
-};
-layout(std430, binding=9) buffer Inlets3{
-    // inlet3 with n particles // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
-    mat4x4 Inlet3[];
 };
 layout(std430, binding=10) coherent buffer Voxels0{
     // each voxel has 182 mat44 and first 2 matrices contains its id, x_offset of h, y_offset of h, z_offset of h; and neighborhood voxel ids
@@ -73,6 +44,7 @@ layout(std430, binding=15) buffer GlobalStatus2{
     // [self.H, self.R, self.DELTA_T, self.VISCOSITY, self.COHESION, self.ADHESION, voxel_offset_x, voxel_offset_y, voxel_offset_z, Inlet1In_float, Inlet2In_float, Inlet3In_float]
     float StatusFloat[];
 };
+
 layout(local_size_x=1, local_size_y=1, local_size_z=1) in;
 
 uint x_length = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
@@ -82,49 +54,16 @@ int particle_index = int(gid)+1;
 float particle_index_float = float(particle_index);
 
 const float PI = 3.141592653589793;
-const int n_boundary_particle = 10383;
 const int n_voxel = 48235;
 const float h = 0.01;
 const float r = 0.0025;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
-const float rest_dense = 1000;
-const float eos_constant = 32142.0;
 const float delta_t = 0.00005;
-const float viscosity = 0.001;
-const float cohesion = 0.0001;
-const float adhesion = 0.0001;
 const vec3 offset = vec3(-0.434871, -0.690556, -0.245941);
 const int VOXEL_GROUP_SIZE = 300000;
 const float particle_volume = 6.545e-08;
-const float Coeff_Poly6_2d = 1.0;  // 4 / (PI * pow(h, 8));
-const float Coeff_Poly6_3d = 1.0;  // 315 / (64 * PI * pow(h, 9));
-const float Coeff_Spiky_2d = 1.0;  // 10 / (PI * pow(h, 5));
-const float Coeff_Spiky_3d = 1.0;  // 15 / (PI * pow(h, 6));
-const float Coeff_Viscosity_2d = 1.0; // 40 / (PI * h2);
-const float Coeff_Viscosity_3d = 1.0; // 15 / (2 * PI * pow(h, 3));
 
-
-float h2 = h * h;
-
-// coefficients
-// struct Coefficient{
-//     float Poly6_2d;
-//     float Poly6_3d;
-//     float Spiky_2d;
-//     float Spiky_3d;
-//     float Viscosity_2d;
-//     float Viscosity_3d;
-// };
-//
-// Coefficient coeff = Coefficient(
-//     4 / (PI * pow(h, 8)),
-//     315 / (64 * PI * pow(h, 9)),
-//     10 / (PI * pow(h, 5)),
-//     15 / (PI * pow(h, 6)),
-//     40 / (PI * h2),
-//     15 / (2 * PI * pow(h, 3))
-// );
 
 
 // poly6
@@ -300,15 +239,15 @@ int set_voxel_data_atomic(int voxel_id, int pointer, int value){
     return ans;
 }
 
-void ComputeParticleDensityPressure(){
+void ComputeParticleProperties(){
     // DEBUG FOR KERNEL VALUE
     float kernel_value = 0.0;
     // position of current particle focused
     vec3 particle_pos = Particle[particle_index-1][0].xyz;
-    // delete its density and pressure last time, optional
-    //ParticleSubData[particle_index-1][2].w = Particle[particle_index-1][2].w;
-    Particle[particle_index-1][2].w = 0.0;
-    Particle[particle_index-1][3].w = 0.0;
+    // delete its grad and laplacian last time, optional
+    Particle[particle_index-1][1] = vec4(0.0);
+    Particle[particle_index-1][2].xy = vec2(0.0);
+    Particle[particle_index-1][3].xy = vec2(0.0);
     // voxel_id of current particle
     int voxel_id = int(round(Particle[particle_index-1][0].w));  // starts from 1
     // find neighbourhood vertices, i.e., P_j
@@ -325,10 +264,14 @@ void ComputeParticleDensityPressure(){
             float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
             // distance less than h
             if (rij<h){
-                // add density to location (2, 2) of its mat4x4
-                //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
-                Particle[particle_index-1][2].w += Particle[index_j-1][1].w * poly6_3d(rij, h);
-                kernel_value += poly6_3d(rij, h);
+                // grad u
+                Particle[particle_index-1][1].xy += particle_volume*Particle[index_j-1][2].z * grad_spiky_2d(xij.x, xij.y, rij, h);
+                // grad v
+                Particle[particle_index-1][1].zw += particle_volume*Particle[index_j-1][2].w * grad_spiky_2d(xij.x, xij.y, rij, h);
+                // lap u
+                Particle[particle_index-1][2].x += particle_volume*Particle[index_j-1][2].z * lap_viscosity_2d(rij, h);
+                // lap v
+                Particle[particle_index-1][2].y += particle_volume*Particle[index_j-1][2].w * lap_viscosity_2d(rij, h);
             }
         }
         // P_j is a boundary particle
@@ -339,9 +282,14 @@ void ComputeParticleDensityPressure(){
             float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
             // distance less than h
             if (rij<h){
-                // add density to location (2, 2) of its mat4x4
-                //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
-                Particle[particle_index-1][2].w += BoundaryParticle[index_j-1][1].w * poly6_3d(rij, h);
+                // grad u
+                Particle[particle_index-1][1].xy += particle_volume*BoundaryParticle[index_j-1][2].z * grad_spiky_2d(xij.x, xij.y, rij, h);
+                // grad v
+                Particle[particle_index-1][1].zw += particle_volume*BoundaryParticle[index_j-1][2].w * grad_spiky_2d(xij.x, xij.y, rij, h);
+                // lap u
+                Particle[particle_index-1][2].x += particle_volume*BoundaryParticle[index_j-1][2].z * lap_viscosity_2d(rij, h);
+                // lap v
+                Particle[particle_index-1][2].y += particle_volume*BoundaryParticle[index_j-1][2].w * lap_viscosity_2d(rij, h);
             }
         }
 
@@ -364,10 +312,14 @@ void ComputeParticleDensityPressure(){
                     float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
                     // distance less than h
                     if (rij<h){
-                        // add density to location (2, 2) of its mat4x4
-                        //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
-                        Particle[particle_index-1][2].w += Particle[index_j-1][1].w * poly6_3d(rij, h);
-                        kernel_value += poly6_3d(rij, h);
+                        // grad u
+                        Particle[particle_index-1][1].xy += particle_volume*Particle[index_j-1][2].z * grad_spiky_2d(xij.x, xij.y, rij, h);
+                        // grad v
+                        Particle[particle_index-1][1].zw += particle_volume*Particle[index_j-1][2].w * grad_spiky_2d(xij.x, xij.y, rij, h);
+                        // lap u
+                        Particle[particle_index-1][2].x += particle_volume*Particle[index_j-1][2].z * lap_viscosity_2d(rij, h);
+                        // lap v
+                        Particle[particle_index-1][2].y += particle_volume*Particle[index_j-1][2].w * lap_viscosity_2d(rij, h);
                     }
                 }
                 else if (index_j<0){
@@ -377,9 +329,14 @@ void ComputeParticleDensityPressure(){
                     float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
                     // distance less than h
                     if (rij<h){
-                        // add density to location (2, 2) of its mat4x4
-                        //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
-                        Particle[particle_index-1][2].w += BoundaryParticle[index_j-1][1].w * poly6_3d(rij, h);
+                        // grad u
+                        Particle[particle_index-1][1].xy += particle_volume*BoundaryParticle[index_j-1][2].z * grad_spiky_2d(xij.x, xij.y, rij, h);
+                        // grad v
+                        Particle[particle_index-1][1].zw += particle_volume*BoundaryParticle[index_j-1][2].w * grad_spiky_2d(xij.x, xij.y, rij, h);
+                        // lap u
+                        Particle[particle_index-1][2].x += particle_volume*BoundaryParticle[index_j-1][2].z * lap_viscosity_2d(rij, h);
+                        // lap v
+                        Particle[particle_index-1][2].y += particle_volume*BoundaryParticle[index_j-1][2].w * lap_viscosity_2d(rij, h);
                     }
                 }
 
@@ -387,17 +344,11 @@ void ComputeParticleDensityPressure(){
 
         }
     }
-    // compute pressure by EoS
-    //   P_i_pressure    = EOS_CONST * ((P_i_rho/REST_DENS)**7 - 1)
-    // EOS_CONST = rho0 * (10*v_max)**2 / gamma, where gamma = 7 in this case
-    // Particle[particle_index-1][2].w /= particle_volume*kernel_value;
-    Particle[particle_index-1][3].w = max(eos_constant * (pow(Particle[particle_index-1][2].w/rest_dense, 7) -1), 0.0);
-    ParticleSubData[particle_index-1][2].x = particle_volume*kernel_value;
 }
 
 void main() {
     if(Particle[particle_index-1][0].w != 0){
-        ComputeParticleDensityPressure();
+        ComputeParticleProperties();
     }
 
 }

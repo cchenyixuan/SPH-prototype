@@ -3,12 +3,11 @@ from SpaceDivision import CreateVoxels
 
 
 class Project:
-    def __init__(self, h, r, rho, voxel, offset, frame, domain, boundary, inlets):
+    def __init__(self, h, r, rho, voxel, offset, domain, boundary, inlets):
         self.h = h
         self.r = r
         self.rho = rho
         self.particle_mass = self.r**3*self.rho * 3/4 * np.pi
-        self.frame = self.get_geometry(self.load_file(frame))
         self.voxels, self.offset = np.load(voxel), np.array(offset, dtype=np.float32)
         self.particles = self.load_domain(self.load_file(domain))
         self.boundary_particles = self.load_boundary(self.load_file(boundary))

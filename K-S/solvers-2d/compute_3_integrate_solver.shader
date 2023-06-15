@@ -5,7 +5,7 @@ layout(std430, binding=0) buffer Particles{
     // x , y , 0 , voxel_id
     // grad(u).x, grad(u).y, grad(v).x, grad(v).y
     // lap(u), lap(v), u, v
-    // du/dt, 0.0, 0.0, 0.0
+    // du/dt.x, du/dt.y, 0.0, 0.0
     mat4x4 Particle[];
 };
 layout(std430, binding=1) buffer ParticlesSubData{
@@ -64,6 +64,7 @@ const vec3 offset = vec3(-0.434871, -0.690556, -0.245941);
 const int VOXEL_GROUP_SIZE = 300000;
 const float particle_volume = 6.545e-08;
 
+float h2 = h * h;
 
 int get_voxel_data(int voxel_id, int pointer){
     /*
@@ -160,40 +161,17 @@ int set_voxel_data_atomic(int voxel_id, int pointer, int value){
     return ans;
 }
 
-void AllocateParticles(){
-    // position of current particle focused
-    vec3 particle_pos = Particle[particle_index-1][0].xyz;
-    // for all voxels
-    for(int i=0; i < n_voxel; ++i){
-        // current voxel center position
-        vec3 voxel_pos = offset + vec3(float(get_voxel_data(i+1, 1))*h, float(get_voxel_data(i+1, 2))*h, float(get_voxel_data(i+1, 3))*h);
-        // current particle inside current voxel (vx-2/h<=px<vx+2/h)
-        if(
-            voxel_pos.x-h/2<=particle_pos.x && particle_pos.x<voxel_pos.x+h/2 &&
-            voxel_pos.y-h/2<=particle_pos.y && particle_pos.y<voxel_pos.y+h/2 &&
-            voxel_pos.z-h/2<=particle_pos.z && particle_pos.z<voxel_pos.z+h/2
-            ){
-                // one particle found inside current voxel, get its slot id (start from 0) and add 1 to next slot id
-                int c = atomicAdd(VoxelParticleNumber[i], 1);
-                barrier();
-                // set slot with index value
-                set_voxel_data_atomic(i+1, 32+c%voxel_block_size, particle_index);  // starts from 1 (domain particle)
-                barrier();
-                // set particle's voxel id
-                Particle[particle_index-1][0].w = float(i+1);  // starts from 1.0
-                break;
-        };
-
-    }
-    if(Particle[particle_index-1][0].w<0.5){
-        Particle[particle_index-1] = mat4(0.0);
-        atomicAdd(StatusInt[0], -1);
-        barrier();
-    }
+void EulerMethod(){
+    // current voxel id
+    int voxel_id = int(round(Particle[particle_index-1][0].w));  // starts from 1
+    // du/dt = lap(u) - grad(u)*grad(v) - u*lap(v)
+    Particle[particle_index-1][3].x = Particle[particle_index-1][2].x - dot(Particle[particle_index-1][1].xy, Particle[particle_index-1][1].zw) - Particle[particle_index-1][2].z*Particle[particle_index-1][2].y;
+    // u(t+dt) = u + dt*Particle[particle_index-1][3].x
+    Particle[particle_index-1][2].z += delta_t*Particle[particle_index-1][3].x;
+    // v(t+dt) = lap(v) + u
+    Particle[particle_index-1][2].w = Particle[particle_index-1][2].z + Particle[particle_index-1][2].y;
 }
 
 void main() {
-    AllocateParticles();
-
-
+    EulerMethod();
 }
