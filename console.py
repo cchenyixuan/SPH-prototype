@@ -88,7 +88,7 @@ class DisplayPort:
             self.demo(self.counter, pause=self.pause, show_vector=self.show_vector, show_boundary=self.show_boundary,
                       show_voxel=self.show_voxel)
             # export boundary_data
-            if self.current_step % 4000 == 0 and self.current_step != 0:
+            if self.current_step % self.demo.save_frequency == 0 and self.current_step != 0:
                 print("current step: ", self.current_step)
                 self.save_data()
             if not self.pause:
@@ -109,6 +109,7 @@ class DisplayPort:
 
             glClearColor(0.0, 0.0, 0.0, 1.0)
             glfw.swap_buffers(self.window)
+            # self.pause = True
         glfw.terminate()
 
     def save_data(self):
@@ -237,6 +238,10 @@ class DisplayPort:
                 glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 2)
             if key == glfw.KEY_K and action == glfw.PRESS:
                 glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 4)
+            if key == glfw.KEY_U and action == glfw.PRESS:
+                glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 5)
+            if key == glfw.KEY_W and action == glfw.PRESS:
+                glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 6)
             if key == glfw.KEY_B and action == glfw.PRESS:
                 self.show_boundary = not self.show_boundary
             if key == glfw.KEY_G and action == glfw.PRESS:

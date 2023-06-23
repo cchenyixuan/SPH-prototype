@@ -54,15 +54,16 @@ int particle_index = int(gid)+1;
 float particle_index_float = float(particle_index);
 
 const float PI = 3.141592653589793;
-const int n_voxel = 13122;
-const float h = 0.025;
-const float r = 0.0025;
+const int n_voxel = 321602;
+const float h = 0.005;
+const float r = 0.0005;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
-const float delta_t = 0.0000005;
-const vec3 offset = vec3(-1.0, -0.01, -1.0);
+const float delta_t = 0.00000025;
+const vec3 offset = vec3(-1.0, -0.0015, -1.0);
 const int VOXEL_GROUP_SIZE = 300000;
-const float particle_volume = 2.4e-05;
+const float particle_volume = 9.99736564086355e-07;
+
 float h2 = h*h;
 float Coeff_Poly6_2d = 4 / (PI * pow(h, 8));
 float Coeff_Poly6_3d = 315 / (64 * PI * pow(h, 9));
@@ -249,6 +250,7 @@ int set_voxel_data_atomic(int voxel_id, int pointer, int value){
 void ComputeParticleProperties(){
     // DEBUG FOR KERNEL VALUE
     float kernel_value = 0.0;
+    vec2 kernel_tmp;
     // position of current particle focused
     vec2 particle_pos = Particle[particle_index-1][0].xz;
     // delete its grad and laplacian last time, optional
@@ -264,25 +266,29 @@ void ComputeParticleProperties(){
         // vertex index
         int index_j = get_voxel_data(voxel_id, 32+j);  // starts from 1 or -1
         if (index_j==0){break;}// empty slot
+        else if (index_j>=4004002){break;}// empty slot
         // P_j is a domain particle
         else if (index_j>0){
 
             // distance rij
             float rij = distance(particle_pos, Particle[index_j-1][0].xz);
             vec2 xij = particle_pos - Particle[index_j-1][0].xz;
+
             // distance less than h
-            if (rij == 0){continue;}
+            if (particle_index == index_j){continue;}
+            else if (rij<0.1*r){continue;}
             else if (rij<h){
                 // kernel
-                kernel_value += particle_volume*lap_viscosity_2d(rij, h);
+                kernel_tmp = grad_spiky_2d(xij.x, xij.y, rij, h);
+                // kernel_value += particle_volume*lap_viscosity_2d(rij, h);
                 // grad u
-                Particle[particle_index-1][1].xy += particle_volume*Particle[index_j-1][2].z * grad_spiky_2d(xij.x, xij.y, rij, h);
+                Particle[particle_index-1][1].xy += particle_volume*(-Particle[particle_index-1][2].z+Particle[index_j-1][2].z) * kernel_tmp;
                 // grad v
-                Particle[particle_index-1][1].zw += particle_volume*Particle[index_j-1][2].w * grad_spiky_2d(xij.x, xij.y, rij, h);
+                Particle[particle_index-1][1].zw += particle_volume*(-Particle[particle_index-1][2].w+Particle[index_j-1][2].w) * kernel_tmp;
                 // lap u
-                Particle[particle_index-1][2].x -= particle_volume*Particle[index_j-1][2].z * 2*length(grad_poly6_2d(xij.x, xij.y, rij, h))/rij;
+                Particle[particle_index-1][2].x += 8 * particle_volume * (Particle[particle_index-1][2].z-Particle[index_j-1][2].z) * dot(xij, kernel_tmp)/(rij*rij);
                 // lap v
-                Particle[particle_index-1][2].y -= particle_volume*Particle[index_j-1][2].w * 2*length(grad_poly6_2d(xij.x, xij.y, rij, h))/rij;
+                Particle[particle_index-1][2].y  += 8 * particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * dot(xij, kernel_tmp)/(rij*rij);
             }
         }
 
@@ -299,24 +305,27 @@ void ComputeParticleProperties(){
                 // vertex index
                 int index_j = get_voxel_data(neighborhood_id, 32+j);  // starts from 1 or -1
                 if (index_j==0){ break; }// empty slot
+                else if (index_j>=4004002){break;}// empty slot
                 // P_j is a domain particle
                 else if (index_j>0){
                     // distance rij
                     float rij = distance(particle_pos, Particle[index_j-1][0].xz);
                     vec2 xij = particle_pos - Particle[index_j-1][0].xz;
                     // distance less than h
-                    if (rij == 0){continue;}
+                    if (particle_index == index_j){continue;}
+                    else if (rij<0.1*r){continue;}
                     else if (rij<h){
                         // kernel
-                        kernel_value += particle_volume*lap_viscosity_2d(rij, h);
+                        kernel_tmp = grad_spiky_2d(xij.x, xij.y, rij, h);
+                        //kernel_value += particle_volume*lap_viscosity_2d(rij, h);
                         // grad u
-                        Particle[particle_index-1][1].xy += particle_volume*Particle[index_j-1][2].z * grad_spiky_2d(xij.x, xij.y, rij, h);
+                        Particle[particle_index-1][1].xy += particle_volume*(-Particle[particle_index-1][2].z+Particle[index_j-1][2].z)* kernel_tmp;
                         // grad v
-                        Particle[particle_index-1][1].zw += particle_volume*Particle[index_j-1][2].w * grad_spiky_2d(xij.x, xij.y, rij, h);
+                        Particle[particle_index-1][1].zw += particle_volume*(-Particle[particle_index-1][2].w+Particle[index_j-1][2].w)* kernel_tmp;
                         // lap u
-                        Particle[particle_index-1][2].x -= particle_volume*Particle[index_j-1][2].z * 2*length(grad_poly6_2d(xij.x, xij.y, rij, h))/rij;
+                        Particle[particle_index-1][2].x += 8 * particle_volume * (Particle[particle_index-1][2].z-Particle[index_j-1][2].z) * dot(xij, kernel_tmp)/(rij*rij);
                         // lap v
-                        Particle[particle_index-1][2].y -= particle_volume*Particle[index_j-1][2].w * 2*length(grad_poly6_2d(xij.x, xij.y, rij, h))/rij;
+                        Particle[particle_index-1][2].y += 8 * particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * dot(xij, kernel_tmp)/(rij*rij);
                     }
                 }
 

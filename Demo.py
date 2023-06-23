@@ -12,10 +12,11 @@ from project_loader import Project
 class Demo:
     def __init__(self):
         # --case parameters--
-        self.H = 0.025
-        self.R = 0.025/5
+        self.H = 0.04
+        self.R = 0.005
         self.c0 = 50  # about 10 times of max velocity in this system ensures the density variation less than 1%
         self.DELTA_T = 0.000025  # check CFL condition
+        self.save_frequency = int((1/self.DELTA_T)/10)  # approx. 0.1s
         self.VISCOSITY = 0.001
         self.COHESION = 0.0001
         self.ADHESION = 0.0001
@@ -23,18 +24,18 @@ class Demo:
         self.EOS_CONSTANT = self.c0**2 * self.REST_DENSE / 7  # c0**2*rho0/gamma
         self.PARTICLE_VOLUME = np.pi * 4 / 3 * self.R ** 3
 
-        self.voxel_buffer_file = r".\models\voxel_buffer.npy"
-        self.voxel_origin_offset = [-1.2468699, -0.781989, -1.790468]
+        self.voxel_buffer_file = r".\models\demo_voxelbuffer.npy"
+        self.voxel_origin_offset = [-1.252399, -1.254125, -1.256157]
         self.domain_particle_file = r".\models\domain.obj"
-        self.boundary_particle_file = r".\models\boundary.obj"
+        self.boundary_particle_file = r".\models\demo_boundary.obj"
 
-        self.INLET1_file = r"./models/inlet.obj"
-        self.INLET1_velocity = [0.82732422*2.5, 0.14830143*2.5,  -0.54179454*2.5]
-        self.INLET1_area = 0.05
-        self.INLET2_file = r"./models/inlet2.obj"
-        self.INLET2_velocity = [0.0, 0.0, 0.0]
-        self.INLET2_area = 0.0
-        self.INLET3_file = r"./models/inlet3.obj"
+        self.INLET1_file = r"./models/demo_INLET1.obj"
+        self.INLET1_velocity = [0., 0., -1.5]
+        self.INLET1_area = 0.05065
+        self.INLET2_file = r"./models/demo_INLET2.obj"
+        self.INLET2_velocity = [-2.5, 0.0, 0.0]
+        self.INLET2_area = 0.05065
+        self.INLET3_file = r"./models/demo_INLET2.obj"
         self.INLET3_velocity = [0.0, 0.0, 0.0]
         self.INLET3_area = 0.0
 
@@ -286,7 +287,6 @@ class Demo:
     def __call__(self, i, pause=False, show_vector=False, show_voxel=False, show_boundary=False):
         if self.need_init:
             self.need_init = False
-            s = time.time()
             glUseProgram(self.compute_shader_0)
             glDispatchCompute(self.boundary_particle_number//4+1, 2, 2)
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
@@ -298,7 +298,6 @@ class Demo:
             glUseProgram(self.compute_shader_1i)
             glDispatchCompute(self.inlet_particle_number, 1, 1)
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
-            print(f"{time.time()-s}s for init.")
         if not pause:
             glUseProgram(self.compute_shader_2a)
             glDispatchCompute(self.boundary_particle_number//4+1, 2, 2)
