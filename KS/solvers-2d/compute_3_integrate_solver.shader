@@ -54,15 +54,15 @@ int particle_index = int(gid)+1;
 float particle_index_float = float(particle_index);
 
 const float PI = 3.141592653589793;
-const int n_voxel = 13122;
-const float h = 0.025;
-const float r = 0.0025;
+const int n_voxel = 321602;
+const float h = 0.005;
+const float r = 0.0005;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
-const float delta_t = 0.0000005;
-const vec3 offset = vec3(-1.0, -0.01, -1.0);
+const float delta_t = 0.00000025;
+const vec3 offset = vec3(-1.0, -0.0015, -1.0);
 const int VOXEL_GROUP_SIZE = 300000;
-const float particle_volume = 2.4e-05;
+const float particle_volume = 9.99736564086355e-07;
 
 float h2 = h * h;
 
@@ -168,11 +168,16 @@ void EulerMethod(){
     Particle[particle_index-1][3].x = Particle[particle_index-1][2].x - dot(Particle[particle_index-1][1].xy, Particle[particle_index-1][1].zw) - Particle[particle_index-1][2].z*Particle[particle_index-1][2].y;
     // u(t+dt) = u + dt*Particle[particle_index-1][3].x
     Particle[particle_index-1][2].z += delta_t*Particle[particle_index-1][3].x;
+    Particle[particle_index-1][2].z = max(0.0, Particle[particle_index-1][2].z);
     // v(t+dt) = lap(v) + u
     Particle[particle_index-1][2].w += delta_t*(Particle[particle_index-1][2].z + Particle[particle_index-1][2].y - Particle[particle_index-1][2].w);
+    Particle[particle_index-1][2].w = max(0.0, Particle[particle_index-1][2].w);
 
 }
 
 void main() {
-    EulerMethod();
+    if(Particle[particle_index-1][0].w != 0){
+        EulerMethod();
+    }
+
 }

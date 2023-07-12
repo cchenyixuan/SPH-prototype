@@ -57,15 +57,15 @@ int particle_index = int(gid)+1;
 float particle_index_float = float(particle_index);
 
 const float PI = 3.141592653589793;
-const int n_voxel = 13122;
-const float h = 0.025;
-const float r = 0.0025;
+const int n_voxel = 321602;
+const float h = 0.005;
+const float r = 0.0005;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
-const float delta_t = 0.0000005;
-const vec3 offset = vec3(-1.0, -0.01, -1.0);
+const float delta_t = 0.00000025;
+const vec3 offset = vec3(-1.0, -0.0015, -1.0);
 const int VOXEL_GROUP_SIZE = 300000;
-const float particle_volume = 2.4e-05;
+const float particle_volume = 9.99736564086355e-07;
 
 
 int get_voxel_data(int voxel_id, int pointer){
@@ -187,15 +187,17 @@ void AllocateParticles(){
         };
 
     }
-    if(Particle[particle_index-1][0].w<0.5){
-        Particle[particle_index-1] = mat4(0.0);
-        atomicAdd(StatusInt[0], -1);
-        barrier();
-    }
+    //if(Particle[particle_index-1][0].w<0.5){
+    //    Particle[particle_index-1] = mat4(0.0);
+    //    atomicAdd(StatusInt[0], -1);
+    //    barrier();
+    //}
 }
 
-void main() {
-    AllocateParticles();
+void main(){
+    if(particle_index < 4004002){
+        AllocateParticles();
+    }
 
 
 }
