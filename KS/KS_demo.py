@@ -9,17 +9,37 @@ from utils.shader_auto_completion import complete_shader
 from project_loader import Project
 
 
+class PoissonSolver:
+    def __init__(self, f: np.ndarray):
+        self.m = f.shape[0]
+        self.h = 1/(1+self.m)
+        self.f = f
+        self.s = np.sin(np.array([[i*j*np.pi*self.h for j in range(1, self.m+1)] for i in range(1, self.m+1)], dtype=np.float32))
+        self.sigma = np.array([np.sin(i*np.pi*self.h/2)**2 for i in range(1, self.m+1)], dtype=np.float32)
+        self.g = self.s@self.f@self.s
+        self.x = np.array([[self.h**4*self.g[i-1, j-1]/(self.sigma[i-1]+self.sigma[j-1]) for j in range(1, self.m+1)] for i in range(1, self.m+1)], dtype=np.float32)
+        self.v = self.s@self.x@self.s
+
+    def __call__(self, f):
+        self.f = f
+        self.g = self.s @ self.f @ self.s
+        self.x = np.array([[self.h ** 4 * self.g[i - 1, j - 1] / (self.sigma[i - 1] + self.sigma[j - 1]) for j in
+                            range(1, self.m + 1)] for i in range(1, self.m + 1)], dtype=np.float32)
+        self.v = self.s @ self.x @ self.s
+        return self.v
+
+
 class Demo:
     def __init__(self):
         # --case parameters--
-        self.H = 0.005
-        self.R = 0.0005
+        self.H = 0.05
+        self.R = 0.005
         self.DELTA_T = 0.00000025
-        self.PARTICLE_VOLUME = 9.99736564086355e-07  # ~69 points inside a circle with radius H
+        self.PARTICLE_VOLUME = 9.827770619246519e-05  # ~69 points inside a circle with radius H
 
-        self.voxel_buffer_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\v_buffer.npy"
-        self.voxel_origin_offset = [-1.0, -0.0015, -1.0]
-        self.domain_particle_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\p_buffer.npy"
+        self.voxel_buffer_file = r".\models\v_buffer.npy"
+        self.voxel_origin_offset = [-10.0, -0.015, -10.0]
+        self.domain_particle_file = r".\models\p_buffer.npy"
 
         # --solver parameters--
         self.VOXEL_MEMORY_LENGTH = 2912  # (2+60+60+60)*16
@@ -63,14 +83,23 @@ class Demo:
                 buffer[i * 4 + 3][-1] = group_id
             return buffer
 
-        self.particles = np.load(self.domain_particle_file)#load_domain(load_file(self.domain_particle_file))
-        for i in range(self.particles.shape[0]//4):
-            if self.particles[i * 4][:3]@self.particles[i * 4][:3] < (1/np.pi)**2:
-                self.particles[i * 4 + 2][2] = (0.5*np.cos(np.pi*np.pi*np.sqrt(self.particles[i * 4][:3]@self.particles[i * 4][:3]))+0.5)
-                self.particles[i * 4 + 2][3] = self.particles[i * 4 + 2][2]
-            else:
-                self.particles[i * 4 + 2][2] = 0.0
-                self.particles[i*4+2][3] = 0.0
+        self.particles = np.load(self.domain_particle_file)  # load_domain(load_file(self.domain_particle_file))
+        for i in range(self.particles.shape[0] // 4):
+            self.particles[i * 4][:3] *= 10
+            l2a = (self.particles[i * 4][:3] - [-2, 0, 0]) @ (self.particles[i * 4][:3] - [-2, 0, 0])
+            l2b = (self.particles[i * 4][:3] - [0, 0, -2]) @ (self.particles[i * 4][:3] - [0, 0, -2])
+            l2c = (self.particles[i * 4][:3] - [1, 0, 0]) @ (self.particles[i * 4][:3] - [1, 0, 0])
+            self.particles[i * 4 + 2][2] = np.exp(-abs(l2a) * 9) * 12 + np.exp(-abs(l2b) * 9) * 12 + np.exp(
+                -abs(l2c) * 9) * 12
+            self.particles[i * 4 + 2][3] = self.particles[i * 4 + 2][2] * 0.2
+
+        self.n_edge = int(np.sqrt(self.particles.shape[0] // 4))
+        self.umap = np.array([self.particles[i * 4+2][2] for i in range(self.particles.shape[0] // 4)], dtype=np.float32).reshape([self.n_edge, self.n_edge])
+        self.poisson_solver = PoissonSolver(self.umap)
+        self.vmap = self.poisson_solver.v
+        for i in range(self.particles.shape[0] // 4):
+            self.particles[i * 4 + 2][3] = self.vmap[i//self.n_edge, i%self.n_edge]
+
         self.particles_sub_data = create_particle_sub_buffer(self.particles, 0)
         self.particle_number = self.particles.shape[0] // 4  # (n * 4, 4)
 
@@ -137,8 +166,8 @@ class Demo:
             compileShader(open(r".\KS\solvers-2d\compute_3_integrate_solver.shader", "rb"), GL_COMPUTE_SHADER))
 
         # render shader
-        self.render_shader = compileProgram(compileShader(open("runtime/vertex.shader", "rb"), GL_VERTEX_SHADER),
-                                            compileShader(open("runtime/fragment.shader", "rb"), GL_FRAGMENT_SHADER))
+        self.render_shader = compileProgram(compileShader(open(r"./KS/KS_shaders/vertex.shader", "rb"), GL_VERTEX_SHADER),
+                                            compileShader(open(r"./KS/KS_shaders/fragment.shader", "rb"), GL_FRAGMENT_SHADER))
         glUseProgram(self.render_shader)
         self.projection_loc = glGetUniformLocation(self.render_shader, "projection")
         self.view_loc = glGetUniformLocation(self.render_shader, "view")
@@ -146,9 +175,9 @@ class Demo:
 
         glUniform1i(self.render_shader_color_type_loc, 0)
         # render shader vector
-        self.render_shader_vector = compileProgram(compileShader(open("runtime/vector_vertex.shader", "rb"), GL_VERTEX_SHADER),
-                                                   compileShader(open("runtime/vector_geometry.shader", "rb"), GL_GEOMETRY_SHADER),
-                                                   compileShader(open("runtime/vector_fragment.shader", "rb"), GL_FRAGMENT_SHADER))
+        self.render_shader_vector = compileProgram(compileShader(open(r"./KS/KS_shaders/vector_vertex.shader", "rb"), GL_VERTEX_SHADER),
+                                                   compileShader(open(r"./KS/KS_shaders/vector_geometry.shader", "rb"), GL_GEOMETRY_SHADER),
+                                                   compileShader(open(r"./KS/KS_shaders/vector_fragment.shader", "rb"), GL_FRAGMENT_SHADER))
         glUseProgram(self.render_shader_vector)
         self.vector_projection_loc = glGetUniformLocation(self.render_shader_vector, "projection")
         self.vector_view_loc = glGetUniformLocation(self.render_shader_vector, "view")
@@ -164,9 +193,9 @@ class Demo:
 #
         # glUniform1i(self.compute_shader_voxel_id_loc, 0)
         # render shader for voxel
-        self.render_shader_voxel = compileProgram(compileShader(open("runtime/voxel_vertex.shader", "rb"), GL_VERTEX_SHADER),
-                                                  compileShader(open("runtime/voxel_geometry.shader", "rb"), GL_GEOMETRY_SHADER),
-                                                  compileShader(open("runtime/voxel_fragment.shader", "rb"), GL_FRAGMENT_SHADER))
+        self.render_shader_voxel = compileProgram(compileShader(open(r"./KS/KS_shaders/voxel_vertex.shader", "rb"), GL_VERTEX_SHADER),
+                                                  compileShader(open(r"./KS/KS_shaders/voxel_geometry.shader", "rb"), GL_GEOMETRY_SHADER),
+                                                  compileShader(open(r"./KS/KS_shaders/voxel_fragment.shader", "rb"), GL_FRAGMENT_SHADER))
         glUseProgram(self.render_shader_voxel)
 
         self.voxel_projection_loc = glGetUniformLocation(self.render_shader_voxel, "projection")
@@ -207,20 +236,28 @@ class Demo:
             # print out total u and v
             tmp = np.empty_like(self.particles)
             glGetNamedBufferSubData(self.sbo_particles, 0, self.particles.nbytes, tmp)
-            tmp = np.frombuffer(tmp, dtype=np.float32).reshape((-1, 4, 4))
-            total_u, total_v = 0, 0
-            grad_u = 0
-            grad_v = 0
-            lap_u = 0
-            lap_v = 0
-            for item in tmp:
-                total_u += item[2, 2]
-                total_v += item[2, 3]
-                grad_u = max(grad_u, abs(item[1, 0])+abs(item[1, 1]))
-                grad_v = max(grad_v, abs(item[1, 2]) + abs(item[1, 3]))
-                lap_u = max(lap_u, abs(item[2, 0]))
-                lap_v = max(lap_v, abs(item[2, 1]))
-            print(f"Total u = {total_u*self.PARTICLE_VOLUME}, Total v = {total_v*self.PARTICLE_VOLUME}, max grad u = {grad_u}, max grad v = {grad_v}, max lap u = {lap_u}, max lap v = {lap_v}")
+            self.umap = np.array([tmp[i * 4 + 2][2] for i in range(tmp.shape[0] // 4)],
+                                 dtype=np.float32).reshape([self.n_edge, self.n_edge])
+            self.vmap = self.poisson_solver(self.umap)
+            for i in range(self.particles.shape[0] // 4):
+                tmp[i * 4 + 2][3] = self.vmap[i // self.n_edge, i % self.n_edge]
+            self.particles = tmp
+            glNamedBufferSubData(self.sbo_particles, 0, self.particles.nbytes, self.particles)
+
+            # tmp = np.frombuffer(tmp, dtype=np.float32).reshape((-1, 4, 4))
+            # total_u, total_v = 0, 0
+            # grad_u = 0
+            # grad_v = 0
+            # lap_u = 0
+            # lap_v = 0
+            # for item in tmp:
+            #     total_u += item[2, 2]
+            #     total_v += item[2, 3]
+            #     grad_u = max(grad_u, abs(item[1, 0])+abs(item[1, 1]))
+            #     grad_v = max(grad_v, abs(item[1, 2]) + abs(item[1, 3]))
+            #     lap_u = max(lap_u, abs(item[2, 0]))
+            #     lap_v = max(lap_v, abs(item[2, 1]))
+            # print(f"Total u = {total_u*self.PARTICLE_VOLUME}, Total v = {total_v*self.PARTICLE_VOLUME}, max grad u = {grad_u}, max grad v = {grad_v}, max lap u = {lap_u}, max lap v = {lap_v}")
 
 
 

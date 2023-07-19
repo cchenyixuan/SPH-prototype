@@ -55,14 +55,15 @@ float particle_index_float = float(particle_index);
 
 const float PI = 3.141592653589793;
 const int n_voxel = 321602;
-const float h = 0.005;
-const float r = 0.0005;
+const float h = 0.05;
+const float r = 0.005;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
 const float delta_t = 0.00000025;
-const vec3 offset = vec3(-1.0, -0.0015, -1.0);
+const vec3 offset = vec3(-10.0, -0.015, -10.0);
 const int VOXEL_GROUP_SIZE = 300000;
-const float particle_volume = 9.99736564086355e-07;
+const float particle_volume = 9.827770619246519e-05;
+
 
 float h2 = h*h;
 float Coeff_Poly6_2d = 4 / (PI * pow(h, 8));
@@ -150,6 +151,10 @@ float lap_viscosity_2d(float rij, float h){
 float lap_viscosity_3d(float rij, float h){
     if (rij > h){return 0;}
     return Coeff_Viscosity_3d / (h * h2) * (h - rij);
+}
+vec2 grad_log_2d(float x, float y, float rij, float h){
+    // if (rij > h){return vec2(0.0, 0.0);}
+    return vec2(x / (10000000.0*rij*rij), y / (10000000.0*rij*rij));
 }
 
 int get_voxel_data(int voxel_id, int pointer){
@@ -284,11 +289,13 @@ void ComputeParticleProperties(){
                 // grad u
                 Particle[particle_index-1][1].xy += particle_volume*(-Particle[particle_index-1][2].z+Particle[index_j-1][2].z) * kernel_tmp;
                 // grad v
+                //Particle[particle_index-1][1].zw += particle_volume*(-Particle[particle_index-1][2].w+Particle[index_j-1][2].w) * kernel_tmp;
                 Particle[particle_index-1][1].zw += particle_volume*(-Particle[particle_index-1][2].w+Particle[index_j-1][2].w) * kernel_tmp;
+
                 // lap u
                 Particle[particle_index-1][2].x += 8 * particle_volume * (Particle[particle_index-1][2].z-Particle[index_j-1][2].z) * dot(xij, kernel_tmp)/(rij*rij);
                 // lap v
-                Particle[particle_index-1][2].y  += 8 * particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * dot(xij, kernel_tmp)/(rij*rij);
+                //Particle[particle_index-1][2].y += 8 * particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * dot(xij, kernel_tmp)/(rij*rij);
             }
         }
 
@@ -321,11 +328,12 @@ void ComputeParticleProperties(){
                         // grad u
                         Particle[particle_index-1][1].xy += particle_volume*(-Particle[particle_index-1][2].z+Particle[index_j-1][2].z)* kernel_tmp;
                         // grad v
-                        Particle[particle_index-1][1].zw += particle_volume*(-Particle[particle_index-1][2].w+Particle[index_j-1][2].w)* kernel_tmp;
+                        //Particle[particle_index-1][1].zw += particle_volume*(-Particle[particle_index-1][2].w+Particle[index_j-1][2].w)* kernel_tmp;
+                        Particle[particle_index-1][1].zw += particle_volume*(-Particle[particle_index-1][2].w+Particle[index_j-1][2].w) * kernel_tmp;
                         // lap u
                         Particle[particle_index-1][2].x += 8 * particle_volume * (Particle[particle_index-1][2].z-Particle[index_j-1][2].z) * dot(xij, kernel_tmp)/(rij*rij);
                         // lap v
-                        Particle[particle_index-1][2].y += 8 * particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * dot(xij, kernel_tmp)/(rij*rij);
+                        //Particle[particle_index-1][2].y += 8 * particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * dot(xij, kernel_tmp)/(rij*rij);
                     }
                 }
 
@@ -335,11 +343,27 @@ void ComputeParticleProperties(){
     }
     // Particle[particle_index-1][2].x /= kernel_value;
     //Particle[particle_index-1][2].y /= kernel_value;
+    //grad v(x) = (N*u)(x) = -1/(2*PI) * integal((x-y)/(x-y)**2 * u(y)dy)
+    // for (int j=0; j<5000000; ++j){
+    //     if (Particle[j][0].w == 0.0){
+    //         continue;
+    //     }
+    //     else if(particle_index-1 == j){
+    //         continue;
+    //     }
+    //     else{
+    //         float rij = distance(particle_pos, Particle[j][0].xz);
+    //         vec2 xij = particle_pos - Particle[j][0].xz;
+    //         Particle[particle_index-1][1].zw += Particle[j][2].z*particle_volume*grad_log_2d(xij.x, xij.y, rij, h);
+    //     }
+    // }
+    // Particle[particle_index-1][1].zw *= -10000000.0/(2*PI);
+    Particle[particle_index-1][2].y = -Particle[particle_index-1][2].z;
 
 }
 
 void main() {
-    if(Particle[particle_index-1][0].w != 0){
+    if(Particle[particle_index-1][0].w > 0.5){
         ComputeParticleProperties();
     }
 

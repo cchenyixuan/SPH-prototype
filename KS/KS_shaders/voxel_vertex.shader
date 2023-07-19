@@ -1,4 +1,10 @@
-#version 460 compatibility
+#version 460 core
+
+layout(location=0) in int v_index; // vertex id
+out GeometryOutput{
+    vec4 v_pos;
+    vec4 v_color;
+}g_out;
 
 layout(std430, binding=0) buffer Particles{
     // particle inside domain with x, y, 0, voxel_id; ux, uy, 0, 0; vx, vy, 0, 0; aux, auy, avx, avy;
@@ -48,14 +54,6 @@ layout(std430, binding=15) buffer GlobalStatus2{
     float StatusFloat[];
 };
 
-layout(local_size_x=1, local_size_y=1, local_size_z=1) in;
-
-uint x_length = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
-uint y_length = gl_NumWorkGroups.y * gl_WorkGroupSize.y;
-uint gid = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y*x_length + gl_GlobalInvocationID.z*x_length*y_length;
-int particle_index = int(gid)+1;
-float particle_index_float = float(particle_index);
-
 const float PI = 3.141592653589793;
 const int n_voxel = 321602;
 const float h = 0.05;
@@ -68,6 +66,8 @@ const int VOXEL_GROUP_SIZE = 300000;
 const float particle_volume = 9.827770619246519e-05;
 
 
+uniform mat4 projection;
+uniform mat4 view;
 int get_voxel_data(int voxel_id, int pointer){
     /*
     voxel_id: starts from 1
@@ -163,41 +163,7 @@ int set_voxel_data_atomic(int voxel_id, int pointer, int value){
     return ans;
 }
 
-void AllocateParticles(){
-    // position of current particle focused
-    vec2 particle_pos = Particle[particle_index-1][0].xz;
-    // for all voxels
-    for(int i=0; i < n_voxel; ++i){
-        // current voxel center position
-        vec3 voxel_pos = offset + vec3(float(get_voxel_data(i+1, 1))*h, float(get_voxel_data(i+1, 2))*h, float(get_voxel_data(i+1, 3))*h);
-        // current particle inside current voxel (vx-2/h<=px<vx+2/h)
-        if(
-            voxel_pos.x-h/2<=particle_pos.x && particle_pos.x<voxel_pos.x+h/2 &&
-            voxel_pos.z-h/2<=particle_pos.y && particle_pos.y<voxel_pos.z+h/2
-            ){
-                // one particle found inside current voxel, get its slot id (start from 0) and add 1 to next slot id
-                int c = atomicAdd(VoxelParticleNumber[i], 1);
-                barrier();
-                // set slot with index value
-                set_voxel_data_atomic(i+1, 32+c%voxel_block_size, particle_index);  // starts from 1 (domain particle)
-                barrier();
-                // set particle's voxel id
-                Particle[particle_index-1][0].w = float(i+1);  // starts from 1.0
-                break;
-        };
-
-    }
-    //if(Particle[particle_index-1][0].w<0.5){
-    //    Particle[particle_index-1] = mat4(0.0);
-    //    atomicAdd(StatusInt[0], -1);
-    //    barrier();
-    //}
-}
-
-void main(){
-    if(particle_index < 4004002){
-        AllocateParticles();
-    }
-
-
+void main() {
+    g_out.v_pos = vec4(offset.xyz, 0.0) + vec4(float(get_voxel_data(v_index+1, 1))*h, float(get_voxel_data(v_index+1, 2))*h, float(get_voxel_data(v_index+1, 3))*h, 1.0);
+    g_out.v_color = vec4(1.0, 1.0, 0.0, 1.0);//float(VoxelParticleNumber[v_index])/240.0);
 }

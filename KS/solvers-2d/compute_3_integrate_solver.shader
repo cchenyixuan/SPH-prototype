@@ -5,7 +5,7 @@ layout(std430, binding=0) buffer Particles{
     // x , y , 0 , voxel_id
     // grad(u).x, grad(u).y, grad(v).x, grad(v).y
     // lap(u), lap(v), u, v
-    // du/dt.x, du/dt.y, 0.0, 0.0
+    // du/dt, 0.0, 0.0, 0.0
     mat4x4 Particle[];
 };
 layout(std430, binding=1) buffer ParticlesSubData{
@@ -55,14 +55,15 @@ float particle_index_float = float(particle_index);
 
 const float PI = 3.141592653589793;
 const int n_voxel = 321602;
-const float h = 0.005;
-const float r = 0.0005;
+const float h = 0.05;
+const float r = 0.005;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
 const float delta_t = 0.00000025;
-const vec3 offset = vec3(-1.0, -0.0015, -1.0);
+const vec3 offset = vec3(-10.0, -0.015, -10.0);
 const int VOXEL_GROUP_SIZE = 300000;
-const float particle_volume = 9.99736564086355e-07;
+const float particle_volume = 9.827770619246519e-05;
+
 
 float h2 = h * h;
 
@@ -170,13 +171,13 @@ void EulerMethod(){
     Particle[particle_index-1][2].z += delta_t*Particle[particle_index-1][3].x;
     Particle[particle_index-1][2].z = max(0.0, Particle[particle_index-1][2].z);
     // v(t+dt) = lap(v) + u
-    Particle[particle_index-1][2].w += delta_t*(Particle[particle_index-1][2].z + Particle[particle_index-1][2].y - Particle[particle_index-1][2].w);
-    Particle[particle_index-1][2].w = max(0.0, Particle[particle_index-1][2].w);
+    // Particle[particle_index-1][2].w += delta_t*(Particle[particle_index-1][2].z + Particle[particle_index-1][2].y - Particle[particle_index-1][2].w);
+    // Particle[particle_index-1][2].w = max(0.0, Particle[particle_index-1][2].w);
 
 }
 
 void main() {
-    if(Particle[particle_index-1][0].w != 0){
+    if(Particle[particle_index-1][0].w > 0.5){
         EulerMethod();
     }
 
