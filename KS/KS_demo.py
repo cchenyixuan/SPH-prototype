@@ -34,12 +34,12 @@ class Demo:
         # --case parameters--
         self.H = 0.05
         self.R = 0.005
-        self.DELTA_T = 0.00000025
+        self.DELTA_T = 0.0000025
         self.PARTICLE_VOLUME = 9.827770619246519e-05  # ~69 points inside a circle with radius H
 
-        self.voxel_buffer_file = r".\models\v_buffer.npy"
+        self.voxel_buffer_file = r".\v_buffer.npy"
         self.voxel_origin_offset = [-10.0, -0.015, -10.0]
-        self.domain_particle_file = r".\models\p_buffer.npy"
+        self.domain_particle_file = r".\p_buffer.npy"
 
         # --solver parameters--
         self.VOXEL_MEMORY_LENGTH = 2912  # (2+60+60+60)*16
@@ -84,14 +84,14 @@ class Demo:
             return buffer
 
         self.particles = np.load(self.domain_particle_file)  # load_domain(load_file(self.domain_particle_file))
-        for i in range(self.particles.shape[0] // 4):
-            self.particles[i * 4][:3] *= 10
-            l2a = (self.particles[i * 4][:3] - [-2, 0, 0]) @ (self.particles[i * 4][:3] - [-2, 0, 0])
-            l2b = (self.particles[i * 4][:3] - [0, 0, -2]) @ (self.particles[i * 4][:3] - [0, 0, -2])
-            l2c = (self.particles[i * 4][:3] - [1, 0, 0]) @ (self.particles[i * 4][:3] - [1, 0, 0])
-            self.particles[i * 4 + 2][2] = np.exp(-abs(l2a) * 9) * 12 + np.exp(-abs(l2b) * 9) * 12 + np.exp(
-                -abs(l2c) * 9) * 12
-            self.particles[i * 4 + 2][3] = self.particles[i * 4 + 2][2] * 0.2
+        # for i in range(self.particles.shape[0] // 4):
+        #     self.particles[i * 4][:3] *= 10
+        #     l2a = (self.particles[i * 4][:3] - [-2, 0, 0]) @ (self.particles[i * 4][:3] - [-2, 0, 0])
+        #     l2b = (self.particles[i * 4][:3] - [0, 0, -2]) @ (self.particles[i * 4][:3] - [0, 0, -2])
+        #     l2c = (self.particles[i * 4][:3] - [1, 0, 0]) @ (self.particles[i * 4][:3] - [1, 0, 0])
+        #     self.particles[i * 4 + 2][2] = np.exp(-abs(l2a) * 9) * 12 + np.exp(-abs(l2b) * 9) * 12 + np.exp(
+        #         -abs(l2c) * 9) * 12
+        #     self.particles[i * 4 + 2][3] = self.particles[i * 4 + 2][2] * 0.2
 
         self.n_edge = int(np.sqrt(self.particles.shape[0] // 4))
         self.umap = np.array([self.particles[i * 4+2][2] for i in range(self.particles.shape[0] // 4)], dtype=np.float32).reshape([self.n_edge, self.n_edge])
@@ -105,6 +105,8 @@ class Demo:
 
         self.voxels = np.load(self.voxel_buffer_file)#np.load(self.voxel_buffer_file)
         self.voxel_number = self.voxels.shape[0] // (self.VOXEL_MATRIX_NUMBER*4)  # (n * (182*4), 4)
+        # for i in range(self.voxel_number):
+        #     self.voxels[182*4*i+8: 182*4*i+28] = 0.0
         self.voxel_groups = [self.voxels[self.VOXEL_MATRIX_NUMBER*4*self.VOXEL_GROUP_SIZE*i:self.VOXEL_MATRIX_NUMBER*4*self.VOXEL_GROUP_SIZE*(i+1)] for i in range(self.voxel_number//self.VOXEL_GROUP_SIZE)]
         if self.voxel_number % self.VOXEL_GROUP_SIZE != 0:
             self.voxel_groups.append(self.voxels[self.VOXEL_MATRIX_NUMBER*4*self.VOXEL_GROUP_SIZE*(self.voxel_number//self.VOXEL_GROUP_SIZE):])
@@ -209,21 +211,24 @@ class Demo:
         #     glUseProgram(self.compute_shader_1)
         #     glDispatchCompute(self.particle_number//10000+1, 100, 100)
         #     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
-#
+##
         #     print(f"{time.time()-s}s for init.")
         #     buffer1 = np.empty_like(self.voxel_groups[0])
         #     glGetNamedBufferSubData(self.sbo_voxels_0, 0, buffer1.nbytes, buffer1)
         #     buffer1 = np.frombuffer(buffer1, dtype=np.int32).reshape((-1, 4))
-#
+##
         #     buffer2 = np.empty_like(self.voxel_groups[1])
         #     glGetNamedBufferSubData(self.sbo_voxels_1, 0, buffer2.nbytes, buffer2)
         #     buffer2 = np.frombuffer(buffer2, dtype=np.int32).reshape((-1, 4))
         #     np.save("v_buffer.npy", np.vstack((buffer1, buffer2)))
-#
+        #     print(f"{time.time() - s}s for init.")
+        #     print("init over")
+##
         #     point_buffer = np.empty_like(self.particles)
         #     glGetNamedBufferSubData(self.sbo_particles, 0, point_buffer.nbytes, point_buffer)
         #     point_buffer = np.frombuffer(point_buffer, dtype=np.float32).reshape((-1, 4))
         #     np.save("p_buffer.npy", point_buffer)
+        #     print("init over")
         if not pause:
             glUseProgram(self.compute_shader_2)
             glDispatchCompute(self.particle_number//10000+1, 100, 100)
