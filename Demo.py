@@ -5,6 +5,7 @@ from OpenGL.GL.shaders import compileProgram, compileShader
 
 import time
 from utils.shader_auto_completion import complete_shader
+from utils.solver_check import SolverCheck3D
 
 from project_loader import Project
 
@@ -12,32 +13,32 @@ from project_loader import Project
 class Demo:
     def __init__(self):
         # --case parameters--
-        self.H = 0.04
-        self.R = 0.005
+        self.H = 0.00125
+        self.R = 0.00025
         self.c0 = 50  # about 10 times of max velocity in this system ensures the density variation less than 1%
-        self.DELTA_T = 0.000025  # check CFL condition
-        self.save_frequency = int((1/self.DELTA_T)/10)  # approx. 0.1s
-        self.VISCOSITY = 0.001
+        self.DELTA_T = 0.4*self.H/self.c0  # check CFL condition
+        self.save_frequency = int((1/self.DELTA_T)/100)  # approx. 0.01s
+        self.VISCOSITY = 0.0003
         self.COHESION = 0.0001
         self.ADHESION = 0.0001
         self.REST_DENSE = 1000.0
         self.EOS_CONSTANT = self.c0**2 * self.REST_DENSE / 7  # c0**2*rho0/gamma
-        self.PARTICLE_VOLUME = np.pi * 4 / 3 * self.R ** 3
+        self.PARTICLE_VOLUME = SolverCheck3D(self.H, self.R)()
 
-        self.voxel_buffer_file = r".\models\demo_voxelbuffer.npy"
-        self.voxel_origin_offset = [-1.252399, -1.254125, -1.256157]
+        self.voxel_buffer_file = r"F:\Fontan\18zhongxie\buffer.npy"
+        self.voxel_origin_offset = [-0.041533, -0.014125, -0.047605]
         self.domain_particle_file = r".\models\domain.obj"
-        self.boundary_particle_file = r".\models\demo_boundary.obj"
+        self.boundary_particle_file = r"F:\Fontan\18zhongxie\boundary.obj"
 
-        self.INLET1_file = r"./models/demo_INLET1.obj"
-        self.INLET1_velocity = [0., 0., -1.5]
-        self.INLET1_area = 0.05065
-        self.INLET2_file = r"./models/demo_INLET2.obj"
-        self.INLET2_velocity = [-2.5, 0.0, 0.0]
-        self.INLET2_area = 0.05065
-        self.INLET3_file = r"./models/demo_INLET2.obj"
-        self.INLET3_velocity = [0.0, 0.0, 0.0]
-        self.INLET3_area = 0.0
+        self.INLET1_file = r"F:\Fontan\18zhongxie\inlet1.obj"
+        self.INLET1_velocity = [0.0, 0.0, 0.602318665]
+        self.INLET1_area = 0.008**2*np.pi
+        self.INLET2_file = r"F:\Fontan\18zhongxie\inlet2.obj"
+        self.INLET2_velocity = [0.0, 0.0, -0.950702025]
+        self.INLET2_area = 0.003**2*np.pi
+        self.INLET3_file = r"F:\Fontan\18zhongxie\inlet3.obj"
+        self.INLET3_velocity = [0.0, 0.0, -0.971093794]
+        self.INLET3_area = 0.00275**2*np.pi
 
         self.INLET1_FLUX = self.INLET1_area * np.linalg.norm(self.INLET1_velocity)  # S1*||Velocity1||
         self.INLET2_FLUX = self.INLET2_area * np.linalg.norm(self.INLET2_velocity)

@@ -53,14 +53,14 @@ layout(std430, binding=15) buffer GlobalStatus2{
 
 const float PI = 3.141592653589793;
 const int n_voxel = 321602;
-const float h = 0.05;
-const float r = 0.005;
+const float h = 0.0125;
+const float r = 0.00125;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
-const float delta_t = 0.00000025;
-const vec3 offset = vec3(-10.0, -0.015, -10.0);
+const float delta_t = 0.0000025;
+const vec3 offset = vec3(-10.0/4, -0.015/4, -10.0/4);
 const int VOXEL_GROUP_SIZE = 300000;
-const float particle_volume = 9.827770619246519e-05;
+const float particle_volume = 0.00000625;
 
 
 uniform mat4 projection;
@@ -119,7 +119,7 @@ void main() {
                 break;
             case 4:  // v  k
                 v_color = vec4(abs(sin(1000*Particle[v_index][2].w)), abs(cos(1000*Particle[v_index][2].w)), abs(sin(1000*2*Particle[v_index][2].w)), 1.0);
-                gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].w*10, Particle[v_index][0].z, 1.0);
+                gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].w, Particle[v_index][0].z, 1.0);
                 break;
         }
     }

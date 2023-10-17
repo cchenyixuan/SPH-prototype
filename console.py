@@ -5,7 +5,7 @@ import pyrr
 import numpy as np
 from OpenGL.GL import *
 import glfw
-import KS.KS_demo as Demo
+import Demo
 from camera import Camera
 from PIL import Image
 from Coordinates import Coord
@@ -23,10 +23,10 @@ class PoissonFFT:
     @staticmethod
     def fast_sine_transform(matrix):
         n, m = matrix.shape
-        tmp = np.zeros((2*n+2, m), dtype=np.float32)
-        tmp[1:n+1, :] = matrix
+        tmp = np.zeros((2 * n + 2, m), dtype=np.float32)
+        tmp[1:n + 1, :] = matrix
         tmp = np.fft.fft2(tmp)
-        return tmp[1:n+1, :].imag
+        return tmp[1:n + 1, :].imag
 
     def poisson_solver_fft(self, b):
         n, m = b.shape
@@ -51,13 +51,15 @@ class PoissonFFT:
 class PoissonSolver:
     def __init__(self, f: np.ndarray):
         self.m = f.shape[0]
-        self.h = 1/(1+self.m)
+        self.h = 1 / (1 + self.m)
         self.f = f
-        self.s = np.sin(np.array([[i*j*np.pi*self.h for j in range(1, self.m+1)] for i in range(1, self.m+1)], dtype=np.float32))
-        self.sigma = np.array([np.sin(i*np.pi*self.h/2)**2 for i in range(1, self.m+1)], dtype=np.float32)
-        self.g = self.s@self.f@self.s
-        self.x = np.array([[self.h**4*self.g[i-1, j-1]/(self.sigma[i-1]+self.sigma[j-1]) for j in range(1, self.m+1)] for i in range(1, self.m+1)], dtype=np.float32)
-        self.v = self.s@self.x@self.s
+        self.s = np.sin(np.array([[i * j * np.pi * self.h for j in range(1, self.m + 1)] for i in range(1, self.m + 1)],
+                                 dtype=np.float32))
+        self.sigma = np.array([np.sin(i * np.pi * self.h / 2) ** 2 for i in range(1, self.m + 1)], dtype=np.float32)
+        self.g = self.s @ self.f @ self.s
+        self.x = np.array([[self.h ** 4 * self.g[i - 1, j - 1] / (self.sigma[i - 1] + self.sigma[j - 1]) for j in
+                            range(1, self.m + 1)] for i in range(1, self.m + 1)], dtype=np.float32)
+        self.v = self.s @ self.x @ self.s
 
 
 class DisplayPort:
@@ -111,6 +113,9 @@ class DisplayPort:
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glEnable(GL_DEPTH_TEST)
 
+        #glfw.window_hint(glfw.SAMPLES, 4)
+        #glEnable(GL_MULTISAMPLE)
+
         self.track_cursor()
         self.track_keyboard()
 
@@ -134,20 +139,25 @@ class DisplayPort:
             # export boundary_data
             # if self.current_step % self.demo.save_frequency == 0 and self.current_step != 0:
             #     print("current step: ", self.current_step)
-            #     # self.save_data()
+            #     self.save_data()
             if not self.pause:
                 self.current_step += 1
             # camera update
             if self.view_changed:
-                glProgramUniformMatrix4fv(self.demo.render_shader_voxel, self.demo.voxel_view_loc, 1, GL_FALSE, self.view)
+                glProgramUniformMatrix4fv(self.demo.render_shader_voxel, self.demo.voxel_view_loc, 1, GL_FALSE,
+                                          self.view)
                 glProgramUniformMatrix4fv(self.demo.render_shader, self.demo.view_loc, 1, GL_FALSE, self.view)
                 # glProgramUniformMatrix4fv(self.demo.render_shader_boundary, self.demo.boundary_view_loc, 1, GL_FALSE, self.view)
-                glProgramUniformMatrix4fv(self.demo.render_shader_vector, self.demo.vector_view_loc, 1, GL_FALSE, self.view)
+                glProgramUniformMatrix4fv(self.demo.render_shader_vector, self.demo.vector_view_loc, 1, GL_FALSE,
+                                          self.view)
                 self.view_changed = False
             # animation
             if self.record:
-                if self.current_step % 100 == 0:
-                    self.save_frames(f"tmp/{self.current_step//100}.jpg")
+                if self.current_step % 2 == 0:
+                    try:
+                        self.save_frames(f"tmp/{self.current_step // 2}.jpg")
+                    except PermissionError:
+                        pass
                 # self.save_particle_data(i)
                 i += 1
 
@@ -156,12 +166,13 @@ class DisplayPort:
             # self.pause = True
         glfw.terminate()
 
-    # def save_data(self):
-    #     data = np.empty((self.demo.boundary_particles.nbytes,), dtype=np.byte)
-    #
-    #     glGetNamedBufferSubData(self.demo.sbo_boundary_particles, 0, self.demo.boundary_particles.nbytes, data)
-    #     data = np.frombuffer(data, dtype=np.float32)
-    #     np.save(f"{self.current_step*self.demo.DELTA_T}.npy", data)
+    def save_data(self):
+        # data = np.empty((self.demo.boundary_particles.nbytes,), dtype=np.byte)
+        #
+        # glGetNamedBufferSubData(self.demo.sbo_boundary_particles, 0, self.demo.boundary_particles.nbytes, data)
+        # data = np.frombuffer(data, dtype=np.float32)
+        # np.save(f"{self.current_step*self.demo.DELTA_T}.npy", data)
+        ...
 
     def save_particle_data(self, i):
         import os
@@ -230,21 +241,16 @@ class DisplayPort:
                 self.camera.mouse_middle = False
 
         def scroll_clb(window, x_offset, y_offset):
-            def f():
-                # if sum([abs(item) for item in self.camera.position.xyz]) <= 1.01:
-                #     if y_offset >= 0:
-                #         return
+            self.view = self.camera(pyrr.Vector3((x_offset, y_offset, 0.0)), "wheel")
+            self.view_changed = True
+
+            def zoom():
                 for i in range(20):
-                    self.camera.position += self.camera.front * y_offset * 0.002
-                    self.camera.position = pyrr.Vector4([*self.camera.position.xyz, 1.0])
-                    self.view = self.camera(flag="wheel")
+                    self.view = self.camera()
                     self.view_changed = True
                     time.sleep(0.005)
-                    # if abs(sum([*self.camera.position.xyz])) <= 1.01:
-                    #     if y_offset >= 0:
-                    #         return
 
-            t = threading.Thread(target=f)
+            t = threading.Thread(target=zoom)
             t.start()
 
         glfw.set_mouse_button_callback(self.window, mouse_press_clb)
@@ -261,15 +267,15 @@ class DisplayPort:
                                        dtype=np.float32)
                     self.a = np.reshape(a0, (-1, 4))
                     print(self.a[:80])
-                    maxi = 0.0
-                    maxi_sample = 0.0
-                    for item in self.a.reshape((-1, 4, 4)):
-                        if abs(item[1, 2])+abs(item[1, 3]) > maxi:
-                            maxi = abs(item[1, 2])+abs(item[1, 3])
-                            maxi_sample = item
-                    print(maxi)
-                    print(maxi_sample)
-                    print("over")
+                    # maxi = 0.0
+                    # maxi_sample = 0.0
+                    # for item in self.a.reshape((-1, 4, 4)):
+                    #     if abs(item[1, 2])+abs(item[1, 3]) > maxi:
+                    #         maxi = abs(item[1, 2])+abs(item[1, 3])
+                    #         maxi_sample = item
+                    # print(maxi)
+                    # print(maxi_sample)
+                    # print("over")
             if key == glfw.KEY_ENTER and action == glfw.PRESS:
                 self.counter += 1
                 self.counter %= self.demo.voxel_number

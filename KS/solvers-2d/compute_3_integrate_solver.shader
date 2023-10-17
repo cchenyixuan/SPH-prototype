@@ -55,14 +55,14 @@ float particle_index_float = float(particle_index);
 
 const float PI = 3.141592653589793;
 const int n_voxel = 321602;
-const float h = 0.05;
-const float r = 0.005;
+const float h = 0.0125;
+const float r = 0.00125;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
 const float delta_t = 0.0000025;
-const vec3 offset = vec3(-10.0, -0.015, -10.0);
+const vec3 offset = vec3(-10.0/4, -0.015/4, -10.0/4);
 const int VOXEL_GROUP_SIZE = 300000;
-const float particle_volume = 9.827770619246519e-05;
+const float particle_volume = 0.00000625;
 
 
 float h2 = h * h;
