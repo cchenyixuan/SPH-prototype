@@ -2,38 +2,76 @@ import pyrr
 import numpy as np
 import threading
 import time
+# typings
+from typing import Tuple
+from numpy import ndarray
 
 
 class Camera:
-    def __init__(self):
-        self.position = pyrr.Vector4([0.0, 0.0, 10.0, 1.0])
+    """
+    A general-purpose camera model with perspective and orthogonal projection-methods.
+    """
+
+    def __init__(self, projection_type="perspective"):
+        """
+        A camera has its position, front, up and look-at.
+        """
+        self.position = pyrr.Vector4([0.0, 0.0, 10, 1.0])
         self.front = pyrr.Vector4([0.0, 0.0, -1.0, 1.0])
         self.up = pyrr.Vector4([0.0, 1.0, 0.0, 1.0])
         self.lookat = pyrr.Vector4([0.0, 0.0, 0.0, 1.0])
+        self.projection_type = projection_type
+        self.screen_ratio = 1920 / 1080
+        self.distance = np.linalg.norm(self.position - self.lookat)
 
-        self.projection = pyrr.matrix44.create_perspective_projection_matrix(45, 1920/1080, 0.001, 1000)
+        self.projection_changed = False
+        self.view_changed = False
+
+        if self.projection_type == "perspective":
+            self.projection = pyrr.matrix44.create_perspective_projection_matrix(45, self.screen_ratio, 0.001, 1000)
+        elif self.projection_type == "orthogonal":
+            self.projection = pyrr.matrix44.create_orthogonal_projection_matrix(-self.distance, self.distance,
+                                                                                -self.distance / self.screen_ratio,
+                                                                                self.distance / self.screen_ratio, 100,
+                                                                                -100)
         self.view = pyrr.matrix44.create_look_at(self.position.xyz, self.front.xyz, self.up.xyz)
         self.translate = pyrr.matrix44.create_identity()
         self.rotate = pyrr.matrix44.create_identity()
         self.scale = pyrr.matrix44.create_identity()
 
-        self.mouse_left = False
-        self.mouse_middle = False
-        self.mouse_right = False
+        # self.mouse_left = False
+        # self.mouse_middle = False
+        # self.mouse_right = False
         self.mouse_pos = pyrr.Vector3([0.0, 0.0, 0.0])
 
-    def __call__(self, delta=pyrr.Vector3([0.0, 0.0, 0.0]), flag=None):
+    def __call__(self, delta=pyrr.Vector3([0.0, 0.0, 0.0]), flag=None) -> Tuple[bool, bool, ndarray | None, ndarray | None]:
         # left: rotate/spin
-        if flag == "left" and self.mouse_left:
+        if flag == "left":  # and self.mouse_left:
             self.operate_rotate(delta)
         # middle: move
-        if flag == "middle" and self.mouse_middle:
+        if flag == "middle":  # and self.mouse_middle:
             self.operate_translate(delta)
         # wheel scroll
         if flag == "wheel":
             self.operate_zoom(delta)
+        # set return value
+        self.view = pyrr.matrix44.create_look_at(self.position.xyz, (self.position + self.front).xyz, self.up.xyz)
+        return self.projection_changed, self.view_changed, self.projection, self.view
 
-        return pyrr.matrix44.create_look_at(self.position.xyz, (self.position+self.front).xyz, self.up.xyz)
+    def switch_projection(self):
+        if self.projection_type == "perspective":
+            self.projection_type = "orthogonal"
+            self.distance = np.linalg.norm(self.position - self.lookat)
+            self.projection = pyrr.matrix44.create_orthogonal_projection_matrix(-self.distance, self.distance,
+                                                                                -self.distance / self.screen_ratio,
+                                                                                self.distance / self.screen_ratio, 100,
+                                                                                -100)
+        elif self.projection_type == "orthogonal":
+            self.projection_type = "perspective"
+            self.projection = pyrr.matrix44.create_perspective_projection_matrix(45, self.screen_ratio, 0.001, 1000)
+        print(self.projection_type)
+
+        self.projection_changed = True
 
     def operate_rotate(self, delta):
         # spin
@@ -54,6 +92,8 @@ class Camera:
             self.front = rotation_matrix @ self.front
             self.up = rotation_matrix @ self.up
 
+        self.view_changed = True
+
     def operate_translate(self, delta):
         right = pyrr.vector3.normalize(pyrr.vector3.cross(self.front.xyz, self.up.xyz))
         pos_before = np.array([*self.position], dtype=np.float32)
@@ -66,6 +106,8 @@ class Camera:
         self.front = pyrr.Vector4(
             [*pyrr.vector3.normalize(pyrr.Vector3([*self.lookat.xyz]) - pyrr.Vector3([*self.position.xyz])), 1.0])
 
+        self.view_changed = True
+
     def operate_zoom(self, delta):
         def smooth_zoom():
             for i in range(20):
@@ -77,6 +119,15 @@ class Camera:
                 if np.linalg.norm(self.position - self.lookat) <= 0.0:
                     if delta.y >= 0:
                         return
+                self.distance = np.linalg.norm(self.position - self.lookat)
+                if self.projection_type == "orthogonal":
+                    self.projection = pyrr.matrix44.create_orthogonal_projection_matrix(-self.distance, self.distance,
+                                                                                        -self.distance / self.screen_ratio,
+                                                                                        self.distance / self.screen_ratio,
+                                                                                        100, -100)
+                    self.projection_changed = True
+
+                self.view_changed = True
 
         zoom_thread = threading.Thread(target=smooth_zoom)
         zoom_thread.start()
@@ -110,4 +161,5 @@ class Camera:
             self.front = pyrr.Vector4([0.0, 0.0, -1.0, 1.0])
             self.up = pyrr.Vector4([0.0, 1.0, 0.0, 1.0])
         return pyrr.matrix44.create_look_at(self.position.xyz, (self.position + self.front).xyz, self.up.xyz), \
-               "{:.2f},{:.2f},{:.2f}\n{:.2f},{:.2f},{:.2f}\n{:.2f},{:.2f},{:.2f}".format(*self.position.xyz, *self.front.xyz, *self.up.xyz)
+            "{:.2f},{:.2f},{:.2f}\n{:.2f},{:.2f},{:.2f}\n{:.2f},{:.2f},{:.2f}".format(*self.position.xyz,
+                                                                                      *self.front.xyz, *self.up.xyz)
