@@ -54,15 +54,15 @@ int particle_index = int(gid)+1;
 float particle_index_float = float(particle_index);
 
 const float PI = 3.141592653589793;
-const int n_voxel = 321602;
-const float h = 0.0125;
-const float r = 0.00125;
+const int n_voxel = 244824;
+const float h = 0.05;
+const float r = 0.005;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
 const float delta_t = 0.0000025;
-const vec3 offset = vec3(-10.0/4, -0.015/4, -10.0/4);
+const vec3 offset = vec3(-5.05, -0.05, -5.05);
 const int VOXEL_GROUP_SIZE = 300000;
-const float particle_volume = 0.00000625;
+const float particle_volume = 8.538886859432597e-05;
 
 
 float h2 = h*h;
@@ -295,10 +295,8 @@ void ComputeParticleProperties(){
                 // lap u
                 Particle[particle_index-1][2].x += 8 * particle_volume * (Particle[particle_index-1][2].z-Particle[index_j-1][2].z) * dot(xij, kernel_tmp)/(rij*rij);
                 // lap v
-                //Particle[particle_index-1][2].y += 8 * particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * dot(xij, kernel_tmp)/(rij*rij);
-                // debug kernel
-                Particle[particle_index-1][3].zw += particle_volume*kernel_tmp;
-                Particle[particle_index-1][3].y += particle_volume*spiky_2d(rij, h);
+                Particle[particle_index-1][2].y -= particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * 2 * length(kernel_tmp)/(rij);
+
             }
         }
 
@@ -336,10 +334,8 @@ void ComputeParticleProperties(){
                         // lap u
                         Particle[particle_index-1][2].x += 8 * particle_volume * (Particle[particle_index-1][2].z-Particle[index_j-1][2].z) * dot(xij, kernel_tmp)/(rij*rij);
                         // lap v
-                        //Particle[particle_index-1][2].y += 8 * particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * dot(xij, kernel_tmp)/(rij*rij);
-                        // debug kernel
-                        Particle[particle_index-1][3].zw += particle_volume*kernel_tmp;
-                        Particle[particle_index-1][3].y += particle_volume*spiky_2d(rij, h);
+                        Particle[particle_index-1][2].y -= particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * 2 * length(kernel_tmp)/(rij);
+
                     }
                 }
 
@@ -364,8 +360,11 @@ void ComputeParticleProperties(){
     //     }
     // }
     // Particle[particle_index-1][1].zw *= -10000000.0/(2*PI);
-    Particle[particle_index-1][2].y = -Particle[particle_index-1][2].z;
-
+    // Particle[particle_index-1][2].y = Particle[particle_index-1][2].w-Particle[particle_index-1][2].z;
+    // debug lap(v)-v+u=0
+    // Particle[particle_index-1][3].z = Particle[particle_index-1][2].y+Particle[particle_index-1][2].z;
+    // Particle[particle_index-1][3].w = Particle[particle_index-1][2].w-Particle[particle_index-1][3].z;
+    // Particle[particle_index-1][2].y = -Particle[particle_index-1][2].z;
 }
 
 void main() {

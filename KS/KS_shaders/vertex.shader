@@ -52,15 +52,15 @@ layout(std430, binding=15) buffer GlobalStatus2{
 };
 
 const float PI = 3.141592653589793;
-const int n_voxel = 321602;
-const float h = 0.0125;
-const float r = 0.00125;
+const int n_voxel = 244824;
+const float h = 0.05;
+const float r = 0.005;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
 const float delta_t = 0.0000025;
-const vec3 offset = vec3(-10.0/4, -0.015/4, -10.0/4);
+const vec3 offset = vec3(-5.05, -0.05, -5.05);
 const int VOXEL_GROUP_SIZE = 300000;
-const float particle_volume = 0.00000625;
+const float particle_volume = 8.538886859432597e-05;
 
 
 uniform mat4 projection;
@@ -114,12 +114,24 @@ void main() {
                 gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].z, Particle[v_index][0].z, 1.0);
                 break;
             case 3:  // grad v  d
-                v_color = vec4(abs(Particle[v_index][1].zw)/length(Particle[v_index][1].zw), 0.0, 1.0);
-                gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].z, Particle[v_index][0].z, 1.0);
+                v_color = vec4(abs(Particle[v_index][1].z), abs(Particle[v_index][1].w), 0.0, 1.0);
+                gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].w, Particle[v_index][0].z, 1.0);
                 break;
             case 4:  // v  k
-                v_color = vec4(abs(sin(1000*Particle[v_index][2].w)), abs(cos(1000*Particle[v_index][2].w)), abs(sin(1000*2*Particle[v_index][2].w)), 1.0);
+                v_color = vec4(abs(sin(Particle[v_index][2].w)), abs(cos(Particle[v_index][2].w)), abs(sin(2*Particle[v_index][2].w)), 1.0);
                 gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].w, Particle[v_index][0].z, 1.0);
+                break;
+            case 5:  // v = lap(v)+u  u
+                v_color = vec4(abs(sin(Particle[v_index][3].z)), abs(cos(Particle[v_index][3].z)), abs(sin(2*Particle[v_index][3].z)), 1.0);
+                gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][3].z, Particle[v_index][0].z, 1.0);
+                break;
+            case 6:  // err v = lap(v)+u - v  w
+                v_color = vec4(abs(sin(1000*Particle[v_index][3].w)), abs(cos(1000*Particle[v_index][3].w)), abs(sin(1000*2*Particle[v_index][3].w)), 1.0);
+                gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][3].w, Particle[v_index][0].z, 1.0);
+                break;
+            case 7:  // lap(v) t
+                v_color = vec4(Particle[v_index][2].y, -Particle[v_index][2].y, 0.0, 1.0);
+                gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].y, Particle[v_index][0].z, 1.0);
                 break;
         }
     }

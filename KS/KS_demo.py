@@ -7,6 +7,7 @@ import time
 from utils.shader_auto_completion import complete_shader
 
 from project_loader import Project
+from multiprocessing import Pool
 
 
 class PoissonSolver:
@@ -40,18 +41,102 @@ class PoissonSolver:
         return ans
 
 
+class BesselSolver:
+    def __init__(self, f: np.ndarray):
+        self.m = f.shape[0]
+        self.h = 1/(1+self.m)
+        self.f = self.h**2*f
+        self.s = np.sin(np.array([[i*j*np.pi*self.h for j in range(1, self.m+1)] for i in range(1, self.m+1)], dtype=np.float32))
+        self.sigma = np.array([np.sin(i*np.pi*self.h/2)**2 for i in range(1, self.m+1)], dtype=np.float32)
+        self.g = self.s@self.f@self.s
+        self.x = np.array([[self.h**2*self.g[i-1, j-1]/(self.sigma[i-1]+self.sigma[j-1]) for j in range(1, self.m+1)] for i in range(1, self.m+1)], dtype=np.float32)
+        self.v = self.s@self.x@self.s
+
+    def __call__(self, f):
+        self.f = self.h**2 * f
+        self.g = self.s @ self.f @ self.s
+        self.x = np.array([[self.h ** 2 * self.g[i - 1, j - 1] / (
+                    self.sigma[i - 1] + self.sigma[j - 1]) for j in range(1, self.m + 1)] for i in
+                           range(1, self.m + 1)], dtype=np.float32)
+
+        self.v = self.s @ self.x @ self.s
+        return self.v
+
+    def forward(self):
+        self.forward_stencil = 2*np.eye(self.m)
+        self.forward_stencil[0, 1] = -1
+        self.forward_stencil[-1, -2] = -1
+        for i in range(1, self.m-1):
+            self.forward_stencil[i, i-1], self.forward_stencil[i, i+1] = -1, -1
+        ans = (self.forward_stencil@self.v + self.v@self.forward_stencil)/self.h**2
+        return ans
+
+def conv_worker(args):
+    i, kernel, pad = args
+    print(i - 250)
+    ans_ = []
+    for j in range(250, 250 + 2001):
+        res = kernel * pad[i - 250:i + 251, j - 250:j + 251]
+        ans_.append(np.sum(res) * 0.0001)
+    return ans_
+class BesselConv:
+    def __init__(self):
+        self.bessel_2d_data = np.load(r"D:\ProgramFiles\PycharmProject\SPH-prototype\KS/result2.npy")
+        self.kernel = self.discrete_kernel()
+        self.kernel = self.kernel[749:-749, 749:-749]
+
+    def __call__(self, u):
+        pad = np.zeros((u.shape[0] + 250 * 2, u.shape[1] + 250 * 2), dtype=np.float32)
+        pad[250:250 + u.shape[0], 250:250 + u.shape[1]] = u
+
+        pool = Pool(20)
+
+        t = time.time()
+        ans__ = pool.map(conv_worker, [(i, self.kernel, pad) for i in range(250, 250 + 2001)])
+        print(time.time() - t)
+        pool.close()
+        return np.array(ans__, dtype=np.float32)
+
+    def discrete_kernel(self):
+        kernel = np.zeros((1999, 1999), dtype=np.float32)
+        quarter_kernel = np.zeros((999, 999), dtype=np.float32)
+        for i in range(1, 1000):
+            for j in range(1, 1000):
+                quarter_kernel[i-1, j-1] = self.get_kernel_value(i*0.01, j*0.01)
+        line_kernel = np.zeros((999, ), dtype=np.float32)
+        for i in range(1, 999):
+            line_kernel[i-1] = self.get_kernel_value(i*0.01, 0.0)
+        kernel[999, 1000:] = line_kernel
+        kernel[999, :999] = line_kernel[::-1]
+        kernel[:999, 999] = line_kernel[::-1]
+        kernel[1000:, 999] = line_kernel
+
+        kernel[1000:, 1000:] = quarter_kernel
+        kernel[:999, 1000:] = quarter_kernel[::-1]
+        kernel[:999, :999] = quarter_kernel[::-1, ::-1]
+        kernel[1000:, :999] = quarter_kernel[:, ::-1]
+        return kernel
+
+    def get_kernel_value(self, x, y):
+        norm = np.linalg.norm([x, y])
+        if norm > 9.999:
+            return 0.0
+        a = int(norm // 0.001)
+        b = a + 1
+        theta = norm % 0.001 / 0.001
+        return self.bessel_2d_data[1, a] * (1 - theta) + self.bessel_2d_data[1, b] * theta
 
 class Demo:
     def __init__(self):
         # --case parameters--
-        self.H = 0.0125
-        self.R = 0.00125
-        self.DELTA_T = 0.0000025
-        self.PARTICLE_VOLUME = 0.00000625  # ~69 points inside a circle with radius H
+        self.H = 0.05
+        self.R = 0.005
+        self.DELTA_T = 0.000005
+        self.PARTICLE_VOLUME = 8.538886859432597e-05
 
-        self.voxel_buffer_file = r".\v_buffer.npy"
-        self.voxel_origin_offset = [-10.0/4, -0.015/4, -10.0/4]
-        self.domain_particle_file = r".\p_buffer.npy"
+        self.voxel_buffer_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\v_buffer.npy"
+        self.voxel_origin_offset = [-5.05, -0.05, -5.05]
+        self.domain_particle_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\p_buffer.npy"
 
         # --solver parameters--
         self.VOXEL_MEMORY_LENGTH = 2912  # (2+60+60+60)*16
@@ -101,27 +186,22 @@ class Demo:
             return 4 / (np.pi * h**8) * (h*h - rij * rij)**3
 
         u_sum = 0.0
-        self.particles = np.load(self.domain_particle_file)  # load_domain(load_file(self.domain_particle_file))
-        for i in range(self.particles.shape[0] // 4):
-            # self.particles[i * 4][:3] /= 4
-            # la = np.sqrt((self.particles[i * 4][:3] - [-1, 0, 0]) @ (self.particles[i * 4][:3] - [-1, 0, 0]))
-            # lb = np.sqrt((self.particles[i * 4][:3] - [1, 0, 0]) @ (self.particles[i * 4][:3] - [1, 0, 0]))
-            # self.particles[i * 4 + 2][2] = 9*np.pi*poly6_function_2d(la, 0.33) + 9*np.pi*poly6_function_2d(lb, 0.33)
-            u_sum += self.particles[i * 4 + 2][2]*self.PARTICLE_VOLUME
-        print(f"Total U = {u_sum}")
-        # np.save("p_buffer.npy", self.particles)
-
-        self.n_edge = int(np.sqrt(self.particles.shape[0] // 4))
-        self.umap = np.array([self.particles[i * 4+2][2] for i in range(self.particles.shape[0] // 4)], dtype=np.float32).reshape([self.n_edge, self.n_edge])
-        self.poisson_solver = PoissonSolver(self.umap)
-        self.vmap = self.poisson_solver.v
-        v_sum = 0.0
-        for i in range(self.particles.shape[0] // 4):
-            self.particles[i * 4 + 2][3] = self.vmap[i//self.n_edge, i%self.n_edge]
-            v_sum += self.particles[i * 4 + 2][3] * self.PARTICLE_VOLUME
-        print(f"Total V = {v_sum}")
-
-
+        self.particles = np.load(self.domain_particle_file).reshape((-1, 4))  # load_domain(load_file(self.domain_particle_file))
+        # self.besselconv = BesselConv()
+        # CALCULATE V BY BESSELSOLVER
+        # u = np.zeros((2001, 2001), dtype=np.float32)
+        # v = np.zeros((2001, 2001), dtype=np.float32)
+        # for i in range(2001*2001):
+        #     u[i//2001, i%2001] = self.particles[i*4+2, 2]
+        #     v[i//2001, i%2001] = self.particles[i*4+2, 3]
+        # print(np.sum(u), np.sum(v))
+        # BS = BesselSolver(u)
+        # vv = BS.v
+        # print(np.sum(vv))
+        # for i in range(2001*2001):
+        #     # self.particles[i*4+3, 2] = uuu[i//2001, i%2001]
+        #     self.particles[i * 4 + 2, 3] = vv[i // 2001, i % 2001]
+        # self.particles = self.particles.reshape((-1, 4))
         self.particles_sub_data = create_particle_sub_buffer(self.particles, 0)
         self.particle_number = self.particles.shape[0] // 4  # (n * 4, 4)
 
@@ -226,30 +306,26 @@ class Demo:
         self.voxel_view_loc = glGetUniformLocation(self.render_shader_voxel, "view")
 
     def __call__(self, i, pause=False, show_vector=False, show_voxel=False, show_boundary=False):
-        # if self.need_init:
-        #     self.need_init = False
-        #     s = time.time()
-##
-        #     glUseProgram(self.compute_shader_1)
-        #     glDispatchCompute(self.particle_number, 1, 1)
-        #     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
-###
-        #     buffer1 = np.empty_like(self.voxel_groups[0])
-        #     glGetNamedBufferSubData(self.sbo_voxels_0, 0, buffer1.nbytes, buffer1)
-        #     buffer1 = np.frombuffer(buffer1, dtype=np.int32).reshape((-1, 4))
-###
-        #     buffer2 = np.empty_like(self.voxel_groups[1])
-        #     glGetNamedBufferSubData(self.sbo_voxels_1, 0, buffer2.nbytes, buffer2)
-        #     buffer2 = np.frombuffer(buffer2, dtype=np.int32).reshape((-1, 4))
-        #     np.save("v_buffer.npy", np.vstack((buffer1, buffer2)))
-        #     print(f"{time.time() - s}s for init.")
-        #     print("init over")
-###
-        #     point_buffer = np.empty_like(self.particles)
-        #     glGetNamedBufferSubData(self.sbo_particles, 0, point_buffer.nbytes, point_buffer)
-        #     point_buffer = np.frombuffer(point_buffer, dtype=np.float32).reshape((-1, 4))
-        #     np.save("p_buffer.npy", point_buffer)
-        #     print("init over")
+        if self.need_init:
+            self.need_init = False
+            # s = time.time()
+            # glUseProgram(self.compute_shader_1)
+            # glDispatchCompute(self.particle_number, 1, 1)
+            # glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
+            # buffer1 = np.empty_like(self.voxel_groups[0])
+            # glGetNamedBufferSubData(self.sbo_voxels_0, 0, buffer1.nbytes, buffer1)
+            # buffer1 = np.frombuffer(buffer1, dtype=np.int32).reshape((-1, 4))
+            # # buffer2 = np.empty_like(self.voxel_groups[1])
+            # # glGetNamedBufferSubData(self.sbo_voxels_1, 0, buffer2.nbytes, buffer2)
+            # # buffer2 = np.frombuffer(buffer2, dtype=np.int32).reshape((-1, 4))
+            # np.save("v_buffer.npy", buffer1)#np.vstack((buffer1, buffer2)))
+            # print(f"{time.time() - s}s for init.")
+            # print("init over")
+            # point_buffer = np.empty_like(self.particles)
+            # glGetNamedBufferSubData(self.sbo_particles, 0, point_buffer.nbytes, point_buffer)
+            # point_buffer = np.frombuffer(point_buffer, dtype=np.float32).reshape((-1, 4))
+            # np.save("p_buffer.npy", point_buffer)
+            # print("init over")
         if not pause:
             glUseProgram(self.compute_shader_2)
             glDispatchCompute(self.particle_number, 1, 1)
@@ -263,13 +339,13 @@ class Demo:
             # tmp = np.empty_like(self.particles)
             # glGetNamedBufferSubData(self.sbo_particles, 0, self.particles.nbytes, tmp)
             # self.umap = np.array([tmp[i * 4 + 2][2] for i in range(tmp.shape[0] // 4)],
-            #                      dtype=np.float32).reshape([self.n_edge, self.n_edge])
-            # self.vmap = self.poisson_solver(self.umap)
+            #                      dtype=np.float32).reshape([2001, 2001])
+            # self.vmap = self.besselconv(self.umap)
             # for i in range(self.particles.shape[0] // 4):
-            #     tmp[i * 4 + 2][3] = self.vmap[i // self.n_edge, i % self.n_edge]
+            #     tmp[i * 4 + 2][3] = self.vmap[i // 2001, i % 2001]
             # self.particles = tmp
             # glNamedBufferSubData(self.sbo_particles, 0, self.particles.nbytes, self.particles)
-
+#
             # tmp = np.frombuffer(tmp, dtype=np.float32).reshape((-1, 4, 4))
             # total_u, total_v = 0, 0
             # grad_u = 0

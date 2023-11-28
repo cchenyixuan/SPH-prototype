@@ -138,7 +138,7 @@ class Connector:
             self.p5s.append(self.center_curve(0.5) + self.ring1_half_rotation@(p1-self.ring1.center))
             self.p1s.append(p1)
             self.p2s.append(p2)
-            self.curves.append(BezierCurve(np.vstack([p1, p3, p5, p5, p5, p4, p2]))())
+            self.curves.append(BezierCurve(np.vstack([p1, p3, p5, p5, p4, p2]))())
 
     def __call__(self, *args, **kwargs):
         return self.curves
@@ -260,8 +260,8 @@ if __name__ == "__main__":
     o2 = MeshIO("ring2.obj").vertex_data
     r1 = Ring(o1)
     r2 = Ring(o2)
-    c = Connector(r1, r2, 60, 4.2, 4.2, index_offset=0)
-    interpolated_rings = [Ring(np.array([c.curves[j](i*1/60) for j in range(r1.length)], dtype=np.float32)) for i in range(61)]
+    c = Connector(r1, r2, 45, -1.2, 1.5, index_offset=0)
+    interpolated_rings = [Ring(np.array([c.curves[j](i*1/45) for j in range(r1.length)], dtype=np.float32)) for i in range(46)]
     with open("a.obj", "w") as f:
         f.write("o opt\n")
         for ring in interpolated_rings:

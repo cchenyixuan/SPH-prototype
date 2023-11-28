@@ -5,7 +5,7 @@ import pyrr
 import numpy as np
 from OpenGL.GL import *
 import glfw
-import Demo
+import KS.KS_demo as Demo
 from camera import Camera
 from PIL import Image
 from Coordinates import Coord
@@ -64,7 +64,7 @@ class PoissonSolver:
 
 class DisplayPort:
     def __init__(self):
-        self.console = threading.Thread(target=Console(self))
+        # self.console = threading.Thread(target=Console(self))
         glfw.init()
         self.window = glfw.create_window(1920, 1080, "Console", None, None)
         glfw.set_window_pos(self.window, 0, 30)
@@ -85,14 +85,14 @@ class DisplayPort:
         self.counter = 0
         self.camera = Camera()
 
-        self.view = self.camera()
+        self.view = self.camera()[-1]
         self.view_changed = False
 
         os.makedirs(r"./tmp", exist_ok=True)
 
     def __call__(self, *args, **kwargs):
         glfw.make_context_current(self.window)
-        self.console.start()
+        # self.console.start()
         self.coordinates = Coord()
         self.three_d_cursor = Coord(r"Components/3d_cursor.obj")
 
@@ -210,12 +210,12 @@ class DisplayPort:
             delta = np.array(args[1:], dtype=np.float32) - self.cursor_position[:]
             self.cursor_position = args[1:]
             if self.left_click:
-                self.view = self.camera(pyrr.Vector3((*delta, 0.0)) * 0.1, "left")
+                self.view = self.camera(pyrr.Vector3((*delta, 0.0)) * 0.1, "left")[-1]
                 self.view_changed = True
                 # glUseProgram(self.demo.render_shader_voxel)
                 # glUniformMatrix4fv(self.demo.voxel_view_loc, 1, GL_FALSE, mat)
             elif self.middle_click:
-                self.view = self.camera(pyrr.Vector3((-delta[0] * 0.01, delta[1] * 0.01, 0.0)), "middle")
+                self.view = self.camera(pyrr.Vector3((-delta[0] * 0.01, delta[1] * 0.01, 0.0)), "middle")[-1]
                 self.view_changed = True
                 # glUseProgram(self.demo.render_shader_voxel)
                 # glUniformMatrix4fv(self.demo.voxel_view_loc, 1, GL_FALSE, mat)
@@ -241,12 +241,12 @@ class DisplayPort:
                 self.camera.mouse_middle = False
 
         def scroll_clb(window, x_offset, y_offset):
-            self.view = self.camera(pyrr.Vector3((x_offset, y_offset, 0.0)), "wheel")
+            self.view = self.camera(pyrr.Vector3((x_offset, y_offset, 0.0)), "wheel")[-1]
             self.view_changed = True
 
             def zoom():
                 for i in range(20):
-                    self.view = self.camera()
+                    self.view = self.camera()[-1]
                     self.view_changed = True
                     time.sleep(0.005)
 
@@ -301,6 +301,8 @@ class DisplayPort:
                 glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 5)
             if key == glfw.KEY_W and action == glfw.PRESS:
                 glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 6)
+            if key == glfw.KEY_T and action == glfw.PRESS:
+                glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 7)
             if key == glfw.KEY_B and action == glfw.PRESS:
                 self.show_boundary = not self.show_boundary
             if key == glfw.KEY_G and action == glfw.PRESS:
