@@ -134,9 +134,9 @@ class Demo:
         self.DELTA_T = 0.000005
         self.PARTICLE_VOLUME = 8.538886859432597e-05
 
-        self.voxel_buffer_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\v_buffer.npy"
+        self.voxel_buffer_file = r"C:\Users\cchen\PycharmProjects\SPH-prototype-multi-version\v_buffer.npy"
         self.voxel_origin_offset = [-5.05, -0.05, -5.05]
-        self.domain_particle_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\p_buffer.npy"
+        self.domain_particle_file = r"C:\Users\cchen\PycharmProjects\SPH-prototype-multi-version\p_buffer.npy"
 
         # --solver parameters--
         self.VOXEL_MEMORY_LENGTH = 2912  # (2+60+60+60)*16
@@ -178,6 +178,8 @@ class Demo:
             buffer = np.zeros_like(particles)
             for i in range(buffer.shape[0] // 4):
                 buffer[i * 4 + 3][-1] = group_id
+                # div(u)
+                buffer[i * 4 + 0][0] = 0.01/(1+particles[i * 4 + 0][0]**2+particles[i * 4 + 0][2]**2)**2
             return buffer
 
         def poly6_function_2d(rij, h):

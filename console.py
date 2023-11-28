@@ -291,10 +291,10 @@ class DisplayPort:
                     glProgramUniform1i(self.demo.render_shader_vector, self.demo.render_shader_vector_vector_type_loc,
                                        0)
                 glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 0)
-            if key == glfw.KEY_D and action == glfw.PRESS:
-                glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 3)
             if key == glfw.KEY_P and action == glfw.PRESS:
                 glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 2)
+            if key == glfw.KEY_D and action == glfw.PRESS:
+                glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 3)
             if key == glfw.KEY_K and action == glfw.PRESS:
                 glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 4)
             if key == glfw.KEY_U and action == glfw.PRESS:
@@ -303,6 +303,28 @@ class DisplayPort:
                 glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 6)
             if key == glfw.KEY_T and action == glfw.PRESS:
                 glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 7)
+
+            if key == glfw.KEY_0 or key == glfw.KEY_KP_0 and action == glfw.PRESS:
+                glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 0)
+            if key == glfw.KEY_1 or key == glfw.KEY_KP_1 and action == glfw.PRESS:
+                glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 1)
+            if key == glfw.KEY_2 or key == glfw.KEY_KP_2 and action == glfw.PRESS:
+                glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 2)
+            if key == glfw.KEY_3 or key == glfw.KEY_KP_3 and action == glfw.PRESS:
+                glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 3)
+            if key == glfw.KEY_4 or key == glfw.KEY_KP_4 and action == glfw.PRESS:
+                glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 4)
+            if key == glfw.KEY_5 or key == glfw.KEY_KP_5 and action == glfw.PRESS:
+                glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 5)
+            if key == glfw.KEY_6 or key == glfw.KEY_KP_6 and action == glfw.PRESS:
+                glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 6)
+            if key == glfw.KEY_7 or key == glfw.KEY_KP_7 and action == glfw.PRESS:
+                glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 7)
+            if key == glfw.KEY_8 or key == glfw.KEY_KP_8 and action == glfw.PRESS:
+                glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 8)
+            if key == glfw.KEY_9 or key == glfw.KEY_KP_9 and action == glfw.PRESS:
+                glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 9)
+
             if key == glfw.KEY_B and action == glfw.PRESS:
                 self.show_boundary = not self.show_boundary
             if key == glfw.KEY_G and action == glfw.PRESS:

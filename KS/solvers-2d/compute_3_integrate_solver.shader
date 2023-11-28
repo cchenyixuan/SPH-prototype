@@ -165,15 +165,23 @@ int set_voxel_data_atomic(int voxel_id, int pointer, int value){
 void EulerMethod(){
     // current voxel id
     int voxel_id = int(round(Particle[particle_index-1][0].w));  // starts from 1
-    // du/dt = lap(u) - grad(u)*grad(v) - u*lap(v)
-    Particle[particle_index-1][3].x = Particle[particle_index-1][2].x - dot(Particle[particle_index-1][1].xy, Particle[particle_index-1][1].zw) - Particle[particle_index-1][2].z*Particle[particle_index-1][2].y;
+    // du/dt = -grad(n)*u-n*div(u) + lap(n) - grad(n)*grad(v) - n*lap(v)
+    Particle[particle_index-1][3].x = -dot(Particle[particle_index-1][1].xy, Particle[particle_index-1][3].zw) -Particle[particle_index-1][2].z*ParticleSubData[particle_index-1][0].x + Particle[particle_index-1][2].x - dot(Particle[particle_index-1][1].xy, Particle[particle_index-1][1].zw) - Particle[particle_index-1][2].z*Particle[particle_index-1][2].y;
     // u(t+dt) = u + dt*Particle[particle_index-1][3].x
     Particle[particle_index-1][2].z += delta_t*Particle[particle_index-1][3].x;
     Particle[particle_index-1][2].z = max(0.0, Particle[particle_index-1][2].z);
     // const*dv/dt = lap(v) + n - gamma*v ,  const = 0.05
-    Particle[particle_index-1][2].w += 20.0*delta_t*(Particle[particle_index-1][2].y + Particle[particle_index-1][2].z - 0.00001*Particle[particle_index-1][2].w);
+    Particle[particle_index-1][3].y = Particle[particle_index-1][2].y + Particle[particle_index-1][2].z - 0.00001*Particle[particle_index-1][2].w;
+    Particle[particle_index-1][2].w += 20.0*delta_t*Particle[particle_index-1][3].y;
     Particle[particle_index-1][2].w = max(0.0, Particle[particle_index-1][2].w);
-
+    // x        , 0.0      , y        , voxel_id ;
+    // grad(n).x, grad(n).y, grad(v).x, grad(v).y;
+    // lap(n)   , lap(v)   , n        , v        ;
+    // dn/dt    , dv/dt    , u.x      , u.y      ;
+    // div(u), 0.0, 0.0, 0.0     ;
+    // 0.0   , 0.0, 0.0, 0.0     ;
+    // 0.0   , 0.0, 0.0, 0.0     ;
+    // 0.0   , 0.0, 0.0, group_id;
 }
 
 void main() {
