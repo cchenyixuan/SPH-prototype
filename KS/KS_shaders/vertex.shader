@@ -10,6 +10,14 @@ out GeometryOutput{
     vec4 vv_color;
 }g_out;
 
+// GeometryOutput{
+//     // output vertex to demostrate all 3d-f, 2d-f, 3d-dvdt
+//     vec4 v_pos;
+//     vec4 v_color;
+//     vec4 vv_pos;
+//     vec4 vv_color;
+//
+// }g_out;
 
 layout(std430, binding=0) buffer Particles{
     // particle inside domain with x, y, 0, voxel_id; ux, uy, 0, 0; vx, vy, 0, 0; aux, auy, avx, avy;
@@ -110,7 +118,6 @@ void main() {
         //v_color = vec4(abs(sin(float(voxel_id/2))), abs(cos(float(voxel_id/3))), abs(sin(float(voxel_id/5))), 0.3);
         g_out.vv_pos = vec4(Particle[v_index][0].x, Particle[v_index][2].w, Particle[v_index][0].z, 1.0);
         g_out.vv_color = vec4(Particle[v_index][3].y, -Particle[v_index][3].y, 0.0, 1.0);
-
         switch(color_type){
             case 0:  // n  0
                 v_color = vec4(abs(sin(Particle[v_index][2].z)), abs(cos(Particle[v_index][2].z)), abs(sin(2*Particle[v_index][2].z)), 1.0);

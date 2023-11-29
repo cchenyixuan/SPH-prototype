@@ -134,9 +134,9 @@ class Demo:
         self.DELTA_T = 0.000005
         self.PARTICLE_VOLUME = 8.538886859432597e-05
 
-        self.voxel_buffer_file = r"C:\Users\WS8\PycharmProjects\SPH-prototype\v_buffer.npy"
+        self.voxel_buffer_file = r".\v_buffer.npy"
         self.voxel_origin_offset = [-5.05, -0.05, -5.05]
-        self.domain_particle_file = r"C:\Users\WS8\PycharmProjects\SPH-prototype\p_buffer.npy"
+        self.domain_particle_file = r".\p_buffer.npy"
 
         # --solver parameters--
         self.VOXEL_MEMORY_LENGTH = 2912  # (2+60+60+60)*16

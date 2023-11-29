@@ -297,6 +297,9 @@ void ComputeParticleProperties(){
                 // lap v
                 Particle[particle_index-1][2].y -= particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * 2 * length(kernel_tmp)/(rij);
 
+                // LPSPH v
+                ParticleSubData[particle_index-1][0].y += (2*log(0.005213455767878209)-1)*0.005213455767878209*0.005213455767878209/2 * Particle[index_j-1][2].z;
+
             }
         }
 
@@ -336,6 +339,8 @@ void ComputeParticleProperties(){
                         // lap v
                         Particle[particle_index-1][2].y -= particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * 2 * length(kernel_tmp)/(rij);
 
+                        // LPSPH v
+                        ParticleSubData[particle_index-1][0].y += (2*log(0.005213455767878209)-1)*0.005213455767878209*0.005213455767878209/2 * Particle[index_j-1][2].z;
                     }
                 }
 

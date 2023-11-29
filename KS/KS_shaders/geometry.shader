@@ -1,7 +1,7 @@
 #version 460 core
 
 layout (points) in;
-layout (points, max_vertices = 2) out;
+layout (points, max_vertices = 4) out;
 in GeometryOutput{
     vec4 v_pos;
     vec4 v_color;
@@ -25,65 +25,33 @@ const float particle_volume = 8.538886859432597e-05;
 uniform mat4 projection;
 uniform mat4 view;
 
-void CreateCube(){
-    // center of voxel
-    vec4 center = g_in[0].v_pos;
-    // 8 vertices
-    vec4 p4 = vec4(center.x-h/2, center.y-h/2, center.z-h/2, 1.0);
-    vec4 p3 = vec4(center.x+h/2, center.y-h/2, center.z-h/2, 1.0);
-    vec4 p8 = vec4(center.x+h/2, center.y-h/2, center.z+h/2, 1.0);
-    vec4 p7 = vec4(center.x-h/2, center.y-h/2, center.z+h/2, 1.0);
-    vec4 p6 = vec4(center.x-h/2, center.y+h/2, center.z+h/2, 1.0);
-    vec4 p2 = vec4(center.x-h/2, center.y+h/2, center.z-h/2, 1.0);
-    vec4 p1 = vec4(center.x+h/2, center.y+h/2, center.z-h/2, 1.0);
-    vec4 p5 = vec4(center.x+h/2, center.y+h/2, center.z+h/2, 1.0);
-
-    // vertex color
-    v_color = g_in[0].v_color;
-    // 12 vertices emittion to generate a full cube in order 4-3-7-8-5-3-1-4-2-7-6-5-2-1
-    gl_Position = projection*view*p4;
-    EmitVertex();
-    gl_Position = projection*view*p3;
-    EmitVertex();
-    gl_Position = projection*view*p7;
-    EmitVertex();
-    gl_Position = projection*view*p8;
-    EmitVertex();
-    gl_Position = projection*view*p5;
-    EmitVertex();
-    gl_Position = projection*view*p3;
-    EmitVertex();
-    gl_Position = projection*view*p1;
-    EmitVertex();
-    gl_Position = projection*view*p4;
-    EmitVertex();
-    gl_Position = projection*view*p2;
-    EmitVertex();
-    gl_Position = projection*view*p7;
-    EmitVertex();
-    gl_Position = projection*view*p6;
-    EmitVertex();
-    gl_Position = projection*view*p5;
-    EmitVertex();
-    gl_Position = projection*view*p2;
-    EmitVertex();
-    gl_Position = projection*view*p1;
-    EmitVertex();
-
-    // end of triangle-strip
-    EndPrimitive();
-
+void CreateCross(){
 
 }
 
 void main() {
+    // origin
     v_color = g_in[0].v_color;
     vec4 v_pos1 = g_in[0].v_pos;
     gl_Position = projection*view*v_pos1;
     EmitVertex();
-    v_color = g_in[0].vv_color;
-    vec4 v_pos2 = g_in[0].vv_pos+vec4(20, 0.0, 0.0, 0.0);
+    EndPrimitive();
+    // 2d-version
+    v_color = g_in[0].v_color;
+    vec4 v_pos2 = vec4(g_in[0].v_pos.x+15, g_in[0].v_pos.z, 0.0, 1.0);
     gl_Position = projection*view*v_pos2;
+    EmitVertex();
+    EndPrimitive();
+    // dv/dt
+    v_color = g_in[0].vv_color;
+    vec4 v_pos3 = vec4(g_in[0].vv_pos.x-15, g_in[0].vv_pos.yzw);
+    gl_Position = projection*view*v_pos3;
+    EmitVertex();
+    EndPrimitive();
+    // dv/dt 2d version
+    v_color = g_in[0].vv_color;
+    vec4 v_pos4 = vec4(g_in[0].vv_pos.x-30, g_in[0].vv_pos.z, 0.0, 1.0);
+    gl_Position = projection*view*v_pos4;
     EmitVertex();
     EndPrimitive();
 
