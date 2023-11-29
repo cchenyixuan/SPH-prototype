@@ -1,7 +1,15 @@
 #version 460 core
 
 layout(location=0) in int v_index; // vertex id
-out vec4 v_color; // color output
+// out vec4 v_color; // color output
+
+out GeometryOutput{
+    vec4 v_pos;
+    vec4 v_color;
+    vec4 vv_pos;
+    vec4 vv_color;
+}g_out;
+
 
 layout(std430, binding=0) buffer Particles{
     // particle inside domain with x, y, 0, voxel_id; ux, uy, 0, 0; vx, vy, 0, 0; aux, auy, avx, avy;
@@ -92,6 +100,7 @@ vec3 get_color_gradient(float ratio, float range){
 }
 
 void main() {
+    vec4 v_color;
     if(Particle[v_index][0].w != 0.0){
         // gl_Position = projection*view*vec4(Particle[v_index][0].xyz, 1.0); // set vertex position, w=1.0
         // int voxel_id = int(round(Particle[v_index][0].w));
@@ -99,46 +108,69 @@ void main() {
         // float l = length(Particle[v_index][3].xyz);
         //v_color = vec4(abs(Particle[v_index][3].xyz), 1.0); // set output color by its acc
         //v_color = vec4(abs(sin(float(voxel_id/2))), abs(cos(float(voxel_id/3))), abs(sin(float(voxel_id/5))), 0.3);
+        g_out.vv_pos = vec4(Particle[v_index][0].x, Particle[v_index][2].w, Particle[v_index][0].z, 1.0);
+        g_out.vv_color = vec4(Particle[v_index][3].y, -Particle[v_index][3].y, 0.0, 1.0);
+
         switch(color_type){
             case 0:  // n  0
                 v_color = vec4(abs(sin(Particle[v_index][2].z)), abs(cos(Particle[v_index][2].z)), abs(sin(2*Particle[v_index][2].z)), 1.0);
-                gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].z, Particle[v_index][0].z, 1.0);
+                // gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].z, Particle[v_index][0].z, 1.0);
+                g_out.v_color = v_color;
+                g_out.v_pos = vec4(Particle[v_index][0].x, Particle[v_index][2].z, Particle[v_index][0].z, 1.0);
                 break;
             case 1:  // dn/dt, red+green-  1
                 v_color = vec4(Particle[v_index][3].x, -Particle[v_index][3].x, 0.0, 1.0);
-                gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].z, Particle[v_index][0].z, 1.0);
+                // gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].z, Particle[v_index][0].z, 1.0);
+                g_out.v_color = v_color;
+                g_out.v_pos = vec4(Particle[v_index][0].x, Particle[v_index][2].z, Particle[v_index][0].z, 1.0);
                 break;
             case 2:  // grad n  2
                 v_color = vec4(abs(Particle[v_index][1].x), abs(Particle[v_index][1].y), 0.0, 1.0);
-                gl_Position = projection*view*vec4(Particle[v_index][0].x, length(Particle[v_index][1].xy), Particle[v_index][0].z, 1.0);
+                // gl_Position = projection*view*vec4(Particle[v_index][0].x, length(Particle[v_index][1].xy), Particle[v_index][0].z, 1.0);
+                g_out.v_color = v_color;
+                g_out.v_pos = vec4(Particle[v_index][0].x, length(Particle[v_index][1].xy), Particle[v_index][0].z, 1.0);
                 break;
             case 3:  // lap n  3
                 v_color = vec4(Particle[v_index][2].x, -Particle[v_index][2].x, 0.0, 1.0);
-                gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].x, Particle[v_index][0].z, 1.0);
+                // gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].x, Particle[v_index][0].z, 1.0);
+                g_out.v_color = v_color;
+                g_out.v_pos = vec4(Particle[v_index][0].x, Particle[v_index][2].x, Particle[v_index][0].z, 1.0);
                 break;
             case 4:  // v  4
                 v_color = vec4(abs(sin(Particle[v_index][2].w)), abs(cos(Particle[v_index][2].w)), abs(sin(2*Particle[v_index][2].w)), 1.0);
-                gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].w, Particle[v_index][0].z, 1.0);
+                // gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].w, Particle[v_index][0].z, 1.0);
+                g_out.v_color = v_color;
+                g_out.v_pos = vec4(Particle[v_index][0].x, Particle[v_index][2].w, Particle[v_index][0].z, 1.0);
                 break;
             case 5:  // dv/dt  5
                 v_color = vec4(Particle[v_index][3].y, -Particle[v_index][3].y, 0.0, 1.0);
-                gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].w, Particle[v_index][0].z, 1.0);
+                // gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].w, Particle[v_index][0].z, 1.0);
+                g_out.v_color = v_color;
+                g_out.v_pos = vec4(Particle[v_index][0].x, Particle[v_index][2].w, Particle[v_index][0].z, 1.0);
                 break;
             case 6:  // grad v  6
                 v_color = vec4(abs(Particle[v_index][1].z), abs(Particle[v_index][1].w), 0.0, 1.0);
-                gl_Position = projection*view*vec4(Particle[v_index][0].x, length(Particle[v_index][1].zw), Particle[v_index][0].z, 1.0);
+                // gl_Position = projection*view*vec4(Particle[v_index][0].x, length(Particle[v_index][1].zw), Particle[v_index][0].z, 1.0);
+                g_out.v_color = v_color;
+                g_out.v_pos = vec4(Particle[v_index][0].x, length(Particle[v_index][1].zw), Particle[v_index][0].z, 1.0);
                 break;
             case 7:  // lap v 7
                 v_color = vec4(Particle[v_index][2].y, -Particle[v_index][2].y, 0.0, 1.0);
-                gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].y, Particle[v_index][0].z, 1.0);
+                // gl_Position = projection*view*vec4(Particle[v_index][0].x, Particle[v_index][2].y, Particle[v_index][0].z, 1.0);
+                g_out.v_color = v_color;
+                g_out.v_pos = vec4(Particle[v_index][0].x, Particle[v_index][2].y, Particle[v_index][0].z, 1.0);
                 break;
             case 8:  // u 8
                 v_color = vec4(abs(sin(1000*length(Particle[v_index][3].zw))), abs(cos(1000*length(Particle[v_index][3].zw))), abs(sin(1000*2*length(Particle[v_index][3].zw))), 1.0);
-                gl_Position = projection*view*vec4(Particle[v_index][0].x, length(Particle[v_index][3].zw), Particle[v_index][0].z, 1.0);
+                // gl_Position = projection*view*vec4(Particle[v_index][0].x, length(Particle[v_index][3].zw), Particle[v_index][0].z, 1.0);
+                g_out.v_color = v_color;
+                g_out.v_pos = vec4(Particle[v_index][0].x, length(Particle[v_index][3].zw), Particle[v_index][0].z, 1.0);
                 break;
             case 9:  // div(u) 9
                 v_color = vec4(abs(sin(1000*ParticleSubData[v_index][0].x)), abs(cos(1000*ParticleSubData[v_index][0].x)), abs(sin(1000*2*ParticleSubData[v_index][0].x)), 1.0);
-                gl_Position = projection*view*vec4(Particle[v_index][0].x, ParticleSubData[v_index][0].x, Particle[v_index][0].z, 1.0);
+                // gl_Position = projection*view*vec4(Particle[v_index][0].x, ParticleSubData[v_index][0].x, Particle[v_index][0].z, 1.0);
+                g_out.v_color = v_color;
+                g_out.v_pos = vec4(Particle[v_index][0].x, ParticleSubData[v_index][0].x, Particle[v_index][0].z, 1.0);
                 break;
                 // x        , 0.0      , y        , voxel_id ;
                 // grad(n).x, grad(n).y, grad(v).x, grad(v).y;
@@ -152,8 +184,12 @@ void main() {
         }
     }
     else{
-        gl_Position = vec4(0.0);
+        // gl_Position = vec4(0.0);
         v_color = vec4(0.0);
+        g_out.v_color = v_color;
+        g_out.v_pos = vec4(0.0);
+        g_out.vv_pos = vec4(0);
+        g_out.vv_color = v_color;
     }
 
 }

@@ -134,9 +134,9 @@ class Demo:
         self.DELTA_T = 0.000005
         self.PARTICLE_VOLUME = 8.538886859432597e-05
 
-        self.voxel_buffer_file = r"C:\Users\cchen\PycharmProjects\SPH-prototype-multi-version\v_buffer.npy"
+        self.voxel_buffer_file = r"C:\Users\WS8\PycharmProjects\SPH-prototype\v_buffer.npy"
         self.voxel_origin_offset = [-5.05, -0.05, -5.05]
-        self.domain_particle_file = r"C:\Users\cchen\PycharmProjects\SPH-prototype-multi-version\p_buffer.npy"
+        self.domain_particle_file = r"C:\Users\WS8\PycharmProjects\SPH-prototype\p_buffer.npy"
 
         # --solver parameters--
         self.VOXEL_MEMORY_LENGTH = 2912  # (2+60+60+60)*16
@@ -180,6 +180,8 @@ class Demo:
                 buffer[i * 4 + 3][-1] = group_id
                 # div(u)
                 buffer[i * 4 + 0][0] = 0.01/(1+particles[i * 4 + 0][0]**2+particles[i * 4 + 0][2]**2)**2
+                # v0 = n
+
             return buffer
 
         def poly6_function_2d(rij, h):
@@ -205,6 +207,11 @@ class Demo:
         #     self.particles[i * 4 + 2, 3] = vv[i // 2001, i % 2001]
         # self.particles = self.particles.reshape((-1, 4))
         self.particles_sub_data = create_particle_sub_buffer(self.particles, 0)
+        gaussian = lambda x: 1/2*np.pi * np.exp(-x@x.T/2/0.1)
+        for i in range(self.particles.shape[0] // 4):
+            x = np.array([self.particles[i * 4 + 0][0], self.particles[i * 4 + 0][2]], dtype=np.float32)
+
+            self.particles[i * 4 + 2][3] = gaussian(x)/gaussian(np.array((0, 0)))*200.0
         self.particle_number = self.particles.shape[0] // 4  # (n * 4, 4)
 
         self.voxels = np.load(self.voxel_buffer_file)#np.load(self.voxel_buffer_file)
@@ -273,6 +280,8 @@ class Demo:
 
         # render shader
         self.render_shader = compileProgram(compileShader(open(r"./KS/KS_shaders/vertex.shader", "rb"), GL_VERTEX_SHADER),
+                                            compileShader(open(r"./KS/KS_shaders/geometry.shader", "rb"),
+                                                          GL_GEOMETRY_SHADER),
                                             compileShader(open(r"./KS/KS_shaders/fragment.shader", "rb"), GL_FRAGMENT_SHADER))
         glUseProgram(self.render_shader)
         self.projection_loc = glGetUniformLocation(self.render_shader, "projection")
