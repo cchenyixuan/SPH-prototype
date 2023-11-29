@@ -1,12 +1,13 @@
 #version 460 core
 
 layout (points) in;
-layout (points, max_vertices = 4) out;
+layout (points, max_vertices = 5) out;
 in GeometryOutput{
     vec4 v_pos;
     vec4 v_color;
     vec4 vv_pos;
     vec4 vv_color;
+    vec4 vvv_color;
 }g_in[];
 out vec4 v_color;
 
@@ -52,6 +53,12 @@ void main() {
     v_color = g_in[0].vv_color;
     vec4 v_pos4 = vec4(g_in[0].vv_pos.x-30, g_in[0].vv_pos.z, 0.0, 1.0);
     gl_Position = projection*view*v_pos4;
+    EmitVertex();
+    EndPrimitive();
+    // u 2d version colored by |u|
+    v_color = g_in[0].vvv_color;
+    vec4 v_pos5 = vec4(g_in[0].v_pos.x+30, g_in[0].v_pos.z, 0.0, 1.0);
+    gl_Position = projection*view*v_pos5;
     EmitVertex();
     EndPrimitive();
 

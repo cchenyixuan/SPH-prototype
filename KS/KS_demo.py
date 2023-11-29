@@ -207,11 +207,10 @@ class Demo:
         #     self.particles[i * 4 + 2, 3] = vv[i // 2001, i % 2001]
         # self.particles = self.particles.reshape((-1, 4))
         self.particles_sub_data = create_particle_sub_buffer(self.particles, 0)
-        gaussian = lambda x: 1/2*np.pi * np.exp(-x@x.T/2/0.1)
-        for i in range(self.particles.shape[0] // 4):
-            x = np.array([self.particles[i * 4 + 0][0], self.particles[i * 4 + 0][2]], dtype=np.float32)
-
-            self.particles[i * 4 + 2][3] = gaussian(x)/gaussian(np.array((0, 0)))*200.0
+        # gaussian = lambda x: 1/2*np.pi * np.exp(-x@x.T/2/0.1)
+        # for i in range(self.particles.shape[0] // 4):
+        #     x = np.array([self.particles[i * 4 + 0][0], self.particles[i * 4 + 0][2]], dtype=np.float32)
+        #     self.particles[i * 4 + 2][3] = gaussian(x)/gaussian(np.array((0, 0)))*200.0
         self.particle_number = self.particles.shape[0] // 4  # (n * 4, 4)
 
         self.voxels = np.load(self.voxel_buffer_file)#np.load(self.voxel_buffer_file)
