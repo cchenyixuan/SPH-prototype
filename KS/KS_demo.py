@@ -134,7 +134,7 @@ class Demo:
         self.DELTA_T = 0.000005
         self.PARTICLE_VOLUME = 8.538886859432597e-05
 
-        self.voxel_buffer_file = r"D:\ProgramFiles\PycharmProject\VoxelizationAlg\voxelization\buffer.npy"
+        self.voxel_buffer_file = r".\buffer.npy"
         self.voxel_origin_offset = [-15.05, -0.05, -5.05]
         self.domain_particle_file = r".\p_buffer15.npy"
 

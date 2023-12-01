@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.10 (SPH-prototype)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.11 (SPH-prototype)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.10 (SPH-prototype-multi-version)" project-jdk-type="Python SDK" />
 </project>

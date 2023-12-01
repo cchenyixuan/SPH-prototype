@@ -57,7 +57,7 @@ int particle_index = int(gid)+1;
 float particle_index_float = float(particle_index);
 
 const float PI = 3.141592653589793;
-const int n_voxel = 244824;
+const int n_voxel = 486416;
 const float h = 0.05;
 const float r = 0.005;
 const int voxel_memory_length = 2912;
