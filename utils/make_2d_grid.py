@@ -50,7 +50,7 @@ class Grid2D:
 
         def n(x: np.ndarray, t=0.0, a=np.array([1.0, 0.0])):
             b = np.array([*a[::-1]], dtype=np.float32)
-            return (phi(x - a) + phi(x + a) + phi(x - b) + phi(x + b))/3*2
+            return phi(x, c0=24*4, h=1.0)  # (phi(x - a) + phi(x + a) + phi(x - b) + phi(x + b))/3*2
 
         for i in range(self.buffer.shape[0]):
             self.buffer[i][2, 2] = n(np.array([self.buffer[i][0, 0], self.buffer[i][0, 2]]))
@@ -67,7 +67,8 @@ class Grid2D:
 
 if __name__ == "__main__":
     test_grid = Grid2D(0.05, 0.005, 10, 10)
-    test_grid.calculate_u()
+    # test_grid.calculate_u()
     test_grid.calculate_n()
-    np.save("../p_buffer10.npy", test_grid.buffer)
+    print(np.max(test_grid.buffer))
+    # np.save("../p_buffer10.npy", test_grid.buffer)
 

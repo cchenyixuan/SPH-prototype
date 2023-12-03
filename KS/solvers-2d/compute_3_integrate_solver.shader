@@ -59,7 +59,7 @@ const float h = 0.05;
 const float r = 0.005;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
-const float delta_t = 0.0000025;
+const float delta_t = 0.0000015;
 const vec3 offset = vec3(-10.05, -0.05, -10.05);
 const int VOXEL_GROUP_SIZE = 300000;
 const float particle_volume = 8.538886859432597e-05;
@@ -172,7 +172,7 @@ void EulerMethod(){
     Particle[particle_index-1][2].z = max(0.0, Particle[particle_index-1][2].z);
     // const*dv/dt = lap(v) + n - gamma*v ,  const = 0.05
     Particle[particle_index-1][3].y = Particle[particle_index-1][2].y + Particle[particle_index-1][2].z - 0.00001*Particle[particle_index-1][2].w;
-    Particle[particle_index-1][2].w += 0.1*delta_t*Particle[particle_index-1][3].y;
+    Particle[particle_index-1][2].w += 0.01*delta_t*Particle[particle_index-1][3].y;
     Particle[particle_index-1][2].w = max(0.0, Particle[particle_index-1][2].w);
     // x        , 0.0      , y        , voxel_id ;
     // grad(n).x, grad(n).y, grad(v).x, grad(v).y;
