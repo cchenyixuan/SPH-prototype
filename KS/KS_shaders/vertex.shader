@@ -4,11 +4,11 @@ layout(location=0) in int v_index; // vertex id
 // out vec4 v_color; // color output
 
 out GeometryOutput{
-    vec4 v_pos;
-    vec4 v_color;
-    vec4 vv_pos;
-    vec4 vv_color;
-    vec4 vvv_color;
+    vec4 v_pos;  // x, dn/dt, y, 1.0
+    vec4 v_color;// dn/dt, -dn/dt, 0.0, 1.0
+    vec4 vv_pos; // x, dv/dt, y, 1.0
+    vec4 vv_color;// dv/dt, -dv/dt, 0.0, 1.0
+    vec4 vvv_color;// n, n, n, 1.0
 }g_out;
 
 // GeometryOutput{
@@ -69,13 +69,13 @@ layout(std430, binding=15) buffer GlobalStatus2{
 };
 
 const float PI = 3.141592653589793;
-const int n_voxel = 244824;
+const int n_voxel = 646416;
 const float h = 0.05;
 const float r = 0.005;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
 const float delta_t = 0.0000025;
-const vec3 offset = vec3(-15.05, -0.05, -5.05);
+const vec3 offset = vec3(-10.05, -0.05, -10.05);
 const int VOXEL_GROUP_SIZE = 300000;
 const float particle_volume = 8.538886859432597e-05;
 

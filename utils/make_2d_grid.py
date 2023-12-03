@@ -48,7 +48,7 @@ class Grid2D:
         def phi(x: np.ndarray, c0=1684.3988524066801, h=0.6183469108724111):
             return max(0.0, c0 * (h ** 2 - x @ x.T) ** 3)
 
-        def n(x: np.ndarray, t=0.0, a=np.array([0.6, 0.0])):
+        def n(x: np.ndarray, t=0.0, a=np.array([1.0, 0.0])):
             b = np.array([*a[::-1]], dtype=np.float32)
             return (phi(x - a) + phi(x + a) + phi(x - b) + phi(x + b))/3*2
 
