@@ -54,13 +54,13 @@ int particle_index = int(gid)+1;
 float particle_index_float = float(particle_index);
 
 const float PI = 3.141592653589793;
-const int n_voxel = 244824;
+const int n_voxel = 646416;
 const float h = 0.05;
 const float r = 0.005;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
-const float delta_t = 0.0000025;
-const vec3 offset = vec3(-15.05, -0.05, -5.05);
+const float delta_t = 0.0000015;
+const vec3 offset = vec3(-10.05, -0.05, -10.05);
 const int VOXEL_GROUP_SIZE = 300000;
 const float particle_volume = 8.538886859432597e-05;
 
@@ -165,14 +165,14 @@ int set_voxel_data_atomic(int voxel_id, int pointer, int value){
 void EulerMethod(){
     // current voxel id
     int voxel_id = int(round(Particle[particle_index-1][0].w));  // starts from 1
-    // du/dt = -grad(n)*u-n*div(u) + lap(n) - grad(n)*grad(v) - n*lap(v)
+    // dn/dt = -grad(n)*u-n*div(u) + lap(n) - grad(n)*grad(v) - n*lap(v)
     Particle[particle_index-1][3].x = -dot(Particle[particle_index-1][1].xy, Particle[particle_index-1][3].zw) -Particle[particle_index-1][2].z*ParticleSubData[particle_index-1][0].x + Particle[particle_index-1][2].x - dot(Particle[particle_index-1][1].xy, Particle[particle_index-1][1].zw) - Particle[particle_index-1][2].z*Particle[particle_index-1][2].y;
     // u(t+dt) = u + dt*Particle[particle_index-1][3].x
     Particle[particle_index-1][2].z += delta_t*Particle[particle_index-1][3].x;
     Particle[particle_index-1][2].z = max(0.0, Particle[particle_index-1][2].z);
-    // const*dv/dt = lap(v) + n - gamma*v ,  const = 0.05
+    // const*dv/dt = lap(v) + n - gamma*v ,  const = 100
     Particle[particle_index-1][3].y = Particle[particle_index-1][2].y + Particle[particle_index-1][2].z - 0.00001*Particle[particle_index-1][2].w;
-    Particle[particle_index-1][2].w += 20.0*delta_t*Particle[particle_index-1][3].y;
+    Particle[particle_index-1][2].w += 0.01*delta_t*Particle[particle_index-1][3].y;
     Particle[particle_index-1][2].w = max(0.0, Particle[particle_index-1][2].w);
     // x        , 0.0      , y        , voxel_id ;
     // grad(n).x, grad(n).y, grad(v).x, grad(v).y;
