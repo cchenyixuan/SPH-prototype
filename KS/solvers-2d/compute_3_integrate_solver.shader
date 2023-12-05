@@ -171,8 +171,8 @@ void EulerMethod(){
     Particle[particle_index-1][2].z += delta_t*Particle[particle_index-1][3].x;
     Particle[particle_index-1][2].z = max(0.0, Particle[particle_index-1][2].z);
     // const*dv/dt = lap(v) + n - gamma*v ,  const = 0.05
-    Particle[particle_index-1][3].y = Particle[particle_index-1][2].y + Particle[particle_index-1][2].z - 0.00001*Particle[particle_index-1][2].w;
-    Particle[particle_index-1][2].w += 0.01*delta_t*Particle[particle_index-1][3].y;
+    Particle[particle_index-1][3].y = Particle[particle_index-1][2].y + Particle[particle_index-1][2].z;  // - 0.00001*Particle[particle_index-1][2].w;
+    Particle[particle_index-1][2].w += 0.05*delta_t*Particle[particle_index-1][3].y;
     Particle[particle_index-1][2].w = max(0.0, Particle[particle_index-1][2].w);
     // x        , 0.0      , y        , voxel_id ;
     // grad(n).x, grad(n).y, grad(v).x, grad(v).y;

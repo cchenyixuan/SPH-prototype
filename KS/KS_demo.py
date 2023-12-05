@@ -207,7 +207,7 @@ class Demo:
         #     self.particles[i * 4 + 2, 3] = vv[i // 2001, i % 2001]
         # self.particles = self.particles.reshape((-1, 4))
         for i in range(self.particles.shape[0]//4):
-            self.particles[i * 4 + 2, 3] = self.particles[i * 4 + 2, 2]/96*2  # v0 = n0
+            self.particles[i * 4 + 2, 3] = self.particles[i * 4 + 2, 2]/96*4.5  # v0 = n0
             self.particles[i * 4 + 3, 2] = 0.0  # u -> 0
             self.particles[i * 4 + 3, 3] = 0.0  # u -> 0
         self.particles_sub_data = create_particle_sub_buffer(self.particles, 0)
