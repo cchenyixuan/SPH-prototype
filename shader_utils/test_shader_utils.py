@@ -7,11 +7,21 @@ import glfw
 
 
 def test_matrix_multiple(matrix_a: np.ndarray, matrix_b):
-    # test A amd B
+    # pad to be 4x
+    matrix_a = np.vstack((matrix_a, np.zeros(((4 - matrix_a.shape[0] % 4) % 4, matrix_a.shape[1]))))
+    matrix_a = np.hstack((matrix_a, np.zeros((matrix_a.shape[0], (4 - matrix_a.shape[1] % 4) % 4))))
+
+    matrix_b = np.vstack((matrix_b, np.zeros(((4 - matrix_b.shape[0] % 4) % 4, matrix_b.shape[1]))))
+    matrix_b = np.hstack((matrix_b, np.zeros((matrix_b.shape[0], (4 - matrix_b.shape[1] % 4) % 4))))
+    # calculate shape
     shape_array = np.array([matrix_a.shape[0] // 4, matrix_a.shape[1] // 4, matrix_b.shape[1] // 4, 0], dtype=np.uint32)
-    matrix_a = np.vstack([item for v_block in np.vsplit(matrix_a, shape_array[0]) for item in np.hsplit(v_block, shape_array[1])])
-    matrix_b = np.vstack([item for v_block in np.vsplit(matrix_b, shape_array[1]) for item in np.hsplit(v_block, shape_array[2])])
-    matrix_c = np.zeros((shape_array[0]*4, shape_array[2]*4), dtype=np.float32)
+    # re-arrange a and b
+    matrix_a = np.vstack(
+        [item for v_block in np.vsplit(matrix_a, shape_array[0]) for item in np.hsplit(v_block, shape_array[1])])
+    matrix_b = np.vstack(
+        [item for v_block in np.vsplit(matrix_b, shape_array[1]) for item in np.hsplit(v_block, shape_array[2])])
+    matrix_c = np.zeros((shape_array[0] * 4, shape_array[2] * 4), dtype=np.float64)
+    # prepare opengl content
     glfw.init()
     window = glfw.create_window(100, 100, "Console", None, None)
     glfw.hide_window(window)
@@ -34,32 +44,40 @@ def test_matrix_multiple(matrix_a: np.ndarray, matrix_b):
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, sbo_matrix_c)
     glNamedBufferStorage(sbo_matrix_c, matrix_c.nbytes, matrix_c, GL_DYNAMIC_STORAGE_BIT)
     glNamedBufferSubData(sbo_matrix_c, 0, matrix_c.nbytes, matrix_c)
-    aa = 0
+    # compute
+    s = time.time()
+    a = 0
     while True:
-        aa += 1
         glfw.poll_events()
-        s = time.time()
+        # dispatch jobs
         glUseProgram(compute_shader)
-        glDispatchCompute(*shape_array[:3])
+        glDispatchCompute(shape_array[0], 1, shape_array[2])
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
-
-        buffer = np.empty((matrix_c.nbytes,), dtype=np.byte)
-
-        glGetNamedBufferSubData(sbo_matrix_c, 0, matrix_c.nbytes, buffer)
-        print(time.time() - s)
-        matrix_c = np.frombuffer(buffer, dtype=np.float32).reshape((-1, 4, 4))
-        matrix_c = np.block([[matrix_c[i*shape_array[2] + j] for j in range(shape_array[2])] for i in range(shape_array[0])])
-        if aa > 10:
+        a += 1
+        if a == 1:
+            # collect data
+            print(time.time() - s)
+            buffer = np.empty((matrix_c.nbytes,))
+            print(time.time() - s)
+            glGetNamedBufferSubData(sbo_matrix_c, 0, matrix_c.nbytes, buffer)
+            print(time.time() - s)
+            matrix_c = np.frombuffer(buffer, dtype=np.float64).reshape((-1, 4, 4))
+            # re-arrange data
+            matrix_c = np.block(
+                [[matrix_c[i * shape_array[2] + j] for j in range(shape_array[2])] for i in range(shape_array[0])])
             break
+
+    # trash collect
     glfw.terminate()
     return matrix_c
 
 
 if __name__ == "__main__":
-    a = np.array([i for i in range(6400*8000)], dtype=np.float32).reshape((6400, 8000))
-
-    b = np.array([i for i in range(8000*1200)], dtype=np.float32).reshape((8000, 1200))
+    m, n, k = 2000, 2000, 2000
+    a = np.array([i for i in range(m * n)], dtype=np.float64).reshape((m, n))
+    b = np.array([i for i in range(n * k)], dtype=np.float64).reshape((n, k))
     c = test_matrix_multiple(a, b)
     s = time.time()
-    cc = a@b
-    print("np: ", time.time()-s)
+    cc = a @ b
+    print("np: ", time.time() - s)
+    print(np.all(c[:m, :k] == cc))
