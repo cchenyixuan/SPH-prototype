@@ -288,12 +288,16 @@ void ComputeParticleProperties(){
                 // kernel_value += particle_volume*lap_viscosity_2d(rij, h);
                 // grad u
                 Particle[particle_index-1][1].xy += particle_volume*(-Particle[particle_index-1][2].z+Particle[index_j-1][2].z) * kernel_tmp;
+                // grad u^(q-1)
+                // Particle[particle_index-1][1].xy += particle_volume*(-Particle[particle_index-1][2].z^(q-1)+Particle[index_j-1][2].z^(q-1)) * kernel_tmp;
                 // grad v
                 //Particle[particle_index-1][1].zw += particle_volume*(-Particle[particle_index-1][2].w+Particle[index_j-1][2].w) * kernel_tmp;
                 Particle[particle_index-1][1].zw += particle_volume*(-Particle[particle_index-1][2].w+Particle[index_j-1][2].w) * kernel_tmp;
 
                 // lap u
                 Particle[particle_index-1][2].x += 8 * particle_volume * (Particle[particle_index-1][2].z-Particle[index_j-1][2].z) * dot(xij, kernel_tmp)/(rij*rij);
+                // lap (u^m)
+                // Particle[particle_index-1][2].x += 8 * particle_volume * (Particle[particle_index-1][2].z^m-Particle[index_j-1][2].z^m) * dot(xij, kernel_tmp)/(rij*rij);
                 // lap v
                 Particle[particle_index-1][2].y -= particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * 2 * length(kernel_tmp)/(rij);
 
