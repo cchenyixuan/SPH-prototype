@@ -54,13 +54,13 @@ int particle_index = int(gid)+1;
 float particle_index_float = float(particle_index);
 
 const float PI = 3.141592653589793;
-const int n_voxel = 244824;
+const int n_voxel = 646416;
 const float h = 0.05;
 const float r = 0.005;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
 const float delta_t = 0.0000025;
-const vec3 offset = vec3(-15.05, -0.05, -5.05);
+const vec3 offset = vec3(-10.05, -0.05, -10.05);
 const int VOXEL_GROUP_SIZE = 300000;
 const float particle_volume = 8.538886859432597e-05;
 
@@ -298,7 +298,7 @@ void ComputeParticleProperties(){
                 Particle[particle_index-1][2].y -= particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * 2 * length(kernel_tmp)/(rij);
 
                 // LPSPH v
-                ParticleSubData[particle_index-1][0].y += (2*log(0.005213455767878209)-1)*0.005213455767878209*0.005213455767878209/2 * Particle[index_j-1][2].z;
+                // ParticleSubData[particle_index-1][0].y += (2*log(0.005213455767878209)-1)*0.005213455767878209*0.005213455767878209/2 * Particle[index_j-1][2].z;
 
             }
         }
@@ -340,7 +340,7 @@ void ComputeParticleProperties(){
                         Particle[particle_index-1][2].y -= particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * 2 * length(kernel_tmp)/(rij);
 
                         // LPSPH v
-                        ParticleSubData[particle_index-1][0].y += (2*log(0.005213455767878209)-1)*0.005213455767878209*0.005213455767878209/2 * Particle[index_j-1][2].z;
+                        // ParticleSubData[particle_index-1][0].y += (2*log(0.005213455767878209)-1)*0.005213455767878209*0.005213455767878209/2 * Particle[index_j-1][2].z;
                     }
                 }
 

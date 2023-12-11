@@ -9,13 +9,13 @@ in GeometryOutput{
 out vec4 v_color;
 
 const float PI = 3.141592653589793;
-const int n_voxel = 244824;
+const int n_voxel = 646416;
 const float h = 0.05;
 const float r = 0.005;
 const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
 const float delta_t = 0.0000025;
-const vec3 offset = vec3(-15.05, -0.05, -5.05);
+const vec3 offset = vec3(-10.05, -0.05, -10.05);
 const int VOXEL_GROUP_SIZE = 300000;
 const float particle_volume = 8.538886859432597e-05;
 

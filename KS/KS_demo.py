@@ -134,9 +134,9 @@ class Demo:
         self.DELTA_T = 0.000005
         self.PARTICLE_VOLUME = 8.538886859432597e-05
 
-        self.voxel_buffer_file = r".\v_buffer15.npy"
-        self.voxel_origin_offset = [-15.05, -0.05, -5.05]
-        self.domain_particle_file = r".\p_buffer15.npy"
+        self.voxel_buffer_file = r".\v_buffer10.npy"
+        self.voxel_origin_offset = [-10.05, -0.05, -10.05]
+        self.domain_particle_file = r".\p_buffer10.npy"
 
         # --solver parameters--
         self.VOXEL_MEMORY_LENGTH = 2912  # (2+60+60+60)*16
@@ -179,7 +179,7 @@ class Demo:
             for i in range(buffer.shape[0] // 4):
                 buffer[i * 4 + 3][-1] = group_id
                 # div(u)
-                buffer[i * 4 + 0][0] = 0.01/(1+particles[i * 4 + 0][0]**2+particles[i * 4 + 0][2]**2)**2
+                # buffer[i * 4 + 0][0] = 0.01/(1+particles[i * 4 + 0][0]**2+particles[i * 4 + 0][2]**2)**2
                 # v0 = n
 
             return buffer
@@ -206,6 +206,10 @@ class Demo:
         #     # self.particles[i*4+3, 2] = uuu[i//2001, i%2001]
         #     self.particles[i * 4 + 2, 3] = vv[i // 2001, i % 2001]
         # self.particles = self.particles.reshape((-1, 4))
+        for i in range(self.particles.shape[0]//4):
+            self.particles[i * 4 + 2, 3] = self.particles[i * 4 + 2, 2]/96*4.5  # v0 = n0
+            self.particles[i * 4 + 3, 2] = 0.0  # u -> 0
+            self.particles[i * 4 + 3, 3] = 0.0  # u -> 0
         self.particles_sub_data = create_particle_sub_buffer(self.particles, 0)
         # gaussian = lambda x: 1/2*np.pi * np.exp(-x@x.T/2/0.1)
         # for i in range(self.particles.shape[0] // 4):
@@ -319,6 +323,7 @@ class Demo:
         if self.need_init:
             self.need_init = False
             # s = time.time()
+            # print("Init start")
             # glUseProgram(self.compute_shader_1)
             # glDispatchCompute(self.particle_number, 1, 1)
             # glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
@@ -328,13 +333,15 @@ class Demo:
             # buffer2 = np.empty_like(self.voxel_groups[1])
             # glGetNamedBufferSubData(self.sbo_voxels_1, 0, buffer2.nbytes, buffer2)
             # buffer2 = np.frombuffer(buffer2, dtype=np.int32).reshape((-1, 4))
-            # np.save("v_buffer15.npy", np.vstack((buffer1, buffer2)))
-            # print(f"{time.time() - s}s for init.")
-            # print("init over")
+            # buffer3 = np.empty_like(self.voxel_groups[2])
+            # glGetNamedBufferSubData(self.sbo_voxels_2, 0, buffer3.nbytes, buffer3)
+            # buffer3 = np.frombuffer(buffer3, dtype=np.int32).reshape((-1, 4))
+            # np.save("v_buffer10.npy", np.vstack((buffer1, buffer2, buffer3)))
             # point_buffer = np.empty_like(self.particles)
             # glGetNamedBufferSubData(self.sbo_particles, 0, point_buffer.nbytes, point_buffer)
             # point_buffer = np.frombuffer(point_buffer, dtype=np.float32).reshape((-1, 4))
-            # np.save("p_buffer15.npy", point_buffer)
+            # np.save("p_buffer10.npy", point_buffer)
+            # print(f"{time.time() - s}s for init.")
             # print("init over")
         if not pause:
             glUseProgram(self.compute_shader_2)
