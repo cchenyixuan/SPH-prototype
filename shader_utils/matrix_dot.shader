@@ -1,20 +1,14 @@
 #version 460 compatibility
 
-struct Matrix{
-    mat4 a[4];
-    mat4 b[4];
-    mat4 c[4];
-    mat4 d[4];
-};
 
 layout(std430, binding=0) buffer MatrixA{
-    mat4 matrixA[];
+    dmat4 matrixA[];
 };
 layout(std430, binding=1) buffer MatrixB{
-    mat4 matrixB[];
+    dmat4 matrixB[];
 };
 layout(std430, binding=2) buffer MatrixC{
-    mat4 matrixC[];
+    dmat4 matrixC[];
 };
 
 layout(local_size_x=1, local_size_y=1, local_size_z=1) in;
@@ -27,11 +21,10 @@ uniform uvec4 shapes;
 
 
 void main() {
-    uint ai = gid/(shapes.y*shapes.z);
-    uint aj = gid%shapes.y;
-    uint bi = gid%shapes.y;
-    uint bj = (gid/shapes.y)%shapes.z;
-    uint ci = gid/(shapes.y*shapes.z);  // == ai
-    uint cj = (gid/shapes.y)%shapes.z;  // == bj
-    matrixC[ci*shapes.z + cj] += matrixA[ai*shapes.y + aj] * matrixB[bi*shapes.z +bj];
+    uint i=gid/shapes.z;  // 0
+    uint j=gid%shapes.z;  // 0
+    for(uint x=0; x<shapes.y; ++x){
+        matrixC[gid] += matrixB[x*shapes.z + j] * matrixA[i*shapes.y + x];
+    }
+    // matrixC[0] = matrixB[0]*matrixA[0] + matrixB[1]*matrixA[1];
 }
