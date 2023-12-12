@@ -293,7 +293,8 @@ void ComputeParticleProperties(){
                 Particle[particle_index-1][1].zw += particle_volume*(-Particle[particle_index-1][2].w+Particle[index_j-1][2].w) * kernel_tmp;
 
                 // lap u
-                Particle[particle_index-1][2].x += 8 * particle_volume * (Particle[particle_index-1][2].z-Particle[index_j-1][2].z) * dot(xij, kernel_tmp)/(rij*rij);
+                // Particle[particle_index-1][2].x += 8 * particle_volume * (Particle[particle_index-1][2].z-Particle[index_j-1][2].z) * dot(xij, kernel_tmp)/(rij*rij);
+                Particle[particle_index-1][2].x -= particle_volume * (Particle[particle_index-1][2].z-Particle[index_j-1][2].z) * 2 * length(kernel_tmp)/(rij);
                 // lap v
                 Particle[particle_index-1][2].y -= particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * 2 * length(kernel_tmp)/(rij);
 
@@ -335,7 +336,8 @@ void ComputeParticleProperties(){
                         //Particle[particle_index-1][1].zw += particle_volume*(-Particle[particle_index-1][2].w+Particle[index_j-1][2].w)* kernel_tmp;
                         Particle[particle_index-1][1].zw += particle_volume*(-Particle[particle_index-1][2].w+Particle[index_j-1][2].w) * kernel_tmp;
                         // lap u
-                        Particle[particle_index-1][2].x += 8 * particle_volume * (Particle[particle_index-1][2].z-Particle[index_j-1][2].z) * dot(xij, kernel_tmp)/(rij*rij);
+                        // Particle[particle_index-1][2].x += 8 * particle_volume * (Particle[particle_index-1][2].z-Particle[index_j-1][2].z) * dot(xij, kernel_tmp)/(rij*rij);
+                        Particle[particle_index-1][2].x -= particle_volume * (Particle[particle_index-1][2].z-Particle[index_j-1][2].z) * 2 * length(kernel_tmp)/(rij);
                         // lap v
                         Particle[particle_index-1][2].y -= particle_volume * (Particle[particle_index-1][2].w-Particle[index_j-1][2].w) * 2 * length(kernel_tmp)/(rij);
 

@@ -153,9 +153,9 @@ class DisplayPort:
                 self.view_changed = False
             # animation
             if self.record:
-                if self.current_step % 200 == 0:
+                if self.current_step % 20 == 0:
                     try:
-                        self.save_frames(f"tmp/{self.current_step // 200}.jpg")
+                        self.save_frames(f"tmp/{self.current_step // 20}.jpg")
                     except PermissionError:
                         pass
                 # self.save_particle_data(i)
