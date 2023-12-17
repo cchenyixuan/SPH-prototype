@@ -220,15 +220,19 @@ void AllocateParticles(){
         };
 
     }
+    // particle not inside the domain
     if(Particle[particle_index-1][0].w<0.5){
         Particle[particle_index-1] = mat4(0.0);
         atomicAdd(StatusInt[0], -1);
+        barrier();
+    }
+    // particle inside the domain
+    else{
+        atomicAdd(StatusInt[0], 1);
         barrier();
     }
 }
 
 void main() {
     AllocateParticles();
-
-
 }
