@@ -218,9 +218,11 @@ void UpgradeVoxel(){
     // check if out_counter == VoxelParticleOutNumber[voxel_index-1]
     if (out_counter==VoxelParticleOutNumber[voxel_index-1]){
         // verified
+        set_voxel_data(voxel_index, 31, 1);
     }
     else {
         // particle number not match! debug here
+        set_voxel_data(voxel_index, 31, 0);
     }
     // create a counter to check all in buffer has been considered
     int in_counter = 0;
@@ -243,9 +245,11 @@ void UpgradeVoxel(){
     // check if in_counter == VoxelParticleInNumber[voxel_index-1]
     if (in_counter==VoxelParticleInNumber[voxel_index-1]){
         // verified
+        set_voxel_data(voxel_index, 31, 1);
     }
     else {
         // particle number not match! debug here
+        set_voxel_data(voxel_index, 31, 0);
     }
     // code above could be modified to have O(n) time complexity
     // re-arrange inside buffer using 2 pointers

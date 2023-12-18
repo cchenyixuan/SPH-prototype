@@ -205,6 +205,18 @@ float lap_viscosity_3d(float rij, float h){
     if (rij > h){return 0;}
     return Coeff_Viscosity_3d / (h * h2) * (h - rij);
 }
+// Wendland C4
+float wendland_3d(float rij, float h){
+    float q = rij/h;
+    if (q > 1){return 0;}
+    return Coeff_Wendland_3d * pow(1-q, 6)*(35/3*q*q+6*q+1);
+}
+vec3 grad_wendland_3d(float x, float y, float z, float rij, float h){
+    float q = rij/h;
+    if (q > 1){return vec3(0.0);}
+    float w_prime = Coeff_Wendland_3d / h * (-56/3) * q * (1+5*q) * pow(1-q, 5);
+    return w_prime * vec3(x / rij, y / rij, z / rij);
+}
 
 int get_voxel_data(int voxel_id, int pointer){
     /*
@@ -330,10 +342,10 @@ void ComputeBoundaryParticleDensityPressure(){
             // distance rij
             float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
             // distance less than h
-            if (rij<h){
+            if (rij<0.5*h){
                 // add density to location (2, 2) of its mat4x4
                 //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
-                kernel_value = poly6_3d(rij, h);
+                kernel_value = wendland_3d(rij, 0.5*h);
                 BoundaryParticle[particle_index-1][2].w += Particle[index_j-1][1].w * kernel_value;
                 kernel_sum += particle_volume*kernel_value;
                 wall_shear_stress += (particle_pos - Particle[index_j-1][0].xyz) / (rij + 0.01 * h2) * kernel_value;
@@ -371,10 +383,10 @@ void ComputeBoundaryParticleDensityPressure(){
                     // distance rij
                     float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
                     // distance less than h
-                    if(rij<h){
+                    if(rij<0.5*h){
                         // add density to location (2, 2) of its mat4x4
                         //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
-                        kernel_value = poly6_3d(rij, h);
+                        kernel_value = wendland_3d(rij, 0.5*h);
                         BoundaryParticle[particle_index-1][2].w += Particle[index_j-1][1].w * kernel_value;
                         kernel_sum += particle_volume*kernel_value;
                         wall_shear_stress += (particle_pos - Particle[index_j-1][0].xyz) / (rij + 0.01 * h2) * kernel_value;

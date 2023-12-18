@@ -5,7 +5,7 @@ import pyrr
 import numpy as np
 from OpenGL.GL import *
 import glfw
-import KS.KS_demo as Demo
+import Demo
 from camera import Camera
 from PIL import Image
 from Coordinates import Coord
@@ -103,15 +103,17 @@ class DisplayPort:
         glUseProgram(self.demo.render_shader)
         glUniformMatrix4fv(self.demo.projection_loc, 1, GL_FALSE, self.camera.projection)
         glUniformMatrix4fv(self.demo.view_loc, 1, GL_FALSE, self.camera.view)
-        # glUseProgram(self.demo.render_shader_boundary)
-        # glUniformMatrix4fv(self.demo.boundary_projection_loc, 1, GL_FALSE, self.camera.projection)
-        # glUniformMatrix4fv(self.demo.boundary_view_loc, 1, GL_FALSE, self.camera.view)
+        glUseProgram(self.demo.render_shader_boundary)
+        glUniformMatrix4fv(self.demo.boundary_projection_loc, 1, GL_FALSE, self.camera.projection)
+        glUniformMatrix4fv(self.demo.boundary_view_loc, 1, GL_FALSE, self.camera.view)
         glUseProgram(self.demo.render_shader_vector)
         glUniformMatrix4fv(self.demo.vector_projection_loc, 1, GL_FALSE, self.camera.projection)
         glUniformMatrix4fv(self.demo.vector_view_loc, 1, GL_FALSE, self.camera.view)
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glEnable(GL_DEPTH_TEST)
+        glEnable(GL_PROGRAM_POINT_SIZE)
+        glEnable(GL_POINT_SMOOTH)
 
         #glfw.window_hint(glfw.SAMPLES, 4)
         #glEnable(GL_MULTISAMPLE)
@@ -147,7 +149,7 @@ class DisplayPort:
                 glProgramUniformMatrix4fv(self.demo.render_shader_voxel, self.demo.voxel_view_loc, 1, GL_FALSE,
                                           self.view)
                 glProgramUniformMatrix4fv(self.demo.render_shader, self.demo.view_loc, 1, GL_FALSE, self.view)
-                # glProgramUniformMatrix4fv(self.demo.render_shader_boundary, self.demo.boundary_view_loc, 1, GL_FALSE, self.view)
+                glProgramUniformMatrix4fv(self.demo.render_shader_boundary, self.demo.boundary_view_loc, 1, GL_FALSE, self.view)
                 glProgramUniformMatrix4fv(self.demo.render_shader_vector, self.demo.vector_view_loc, 1, GL_FALSE,
                                           self.view)
                 self.view_changed = False
@@ -212,13 +214,9 @@ class DisplayPort:
             if self.left_click:
                 self.view = self.camera(pyrr.Vector3((*delta, 0.0)) * 0.1, "left")[-1]
                 self.view_changed = True
-                # glUseProgram(self.demo.render_shader_voxel)
-                # glUniformMatrix4fv(self.demo.voxel_view_loc, 1, GL_FALSE, mat)
             elif self.middle_click:
                 self.view = self.camera(pyrr.Vector3((-delta[0] * 0.01, delta[1] * 0.01, 0.0)), "middle")[-1]
                 self.view_changed = True
-                # glUseProgram(self.demo.render_shader_voxel)
-                # glUniformMatrix4fv(self.demo.voxel_view_loc, 1, GL_FALSE, mat)
 
         def mouse_press_clb(window, button, action, mods):
             if button == glfw.MOUSE_BUTTON_LEFT and action == glfw.PRESS:
@@ -266,7 +264,13 @@ class DisplayPort:
                     a0 = np.frombuffer(glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 5000000 * 64),
                                        dtype=np.float32)
                     self.a = np.reshape(a0, (-1, 4))
-                    print(self.a[:80])
+                    glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.demo.sbo_particles_sub_data)
+                    a1 = np.frombuffer(glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 5000000 * 64),
+                                       dtype=np.float32)
+                    self.b = np.reshape(a1, (-1, 4))
+                    # print(np.hstack((self.a[:80], self.b[:80])))
+                    print(f"Total Particle: {sum([True if item[0, 3] else False for item in self.a.reshape((-1, 4, 4))])}")
+                    print(f"Largest Index: {np.max([step for step, item in enumerate(self.a.reshape((-1, 4, 4))) if item[0, 3] != 0])}")
                     # maxi = 0.0
                     # maxi_sample = 0.0
                     # for item in self.a.reshape((-1, 4, 4)):

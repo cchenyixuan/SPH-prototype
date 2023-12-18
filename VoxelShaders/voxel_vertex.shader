@@ -150,5 +150,5 @@ int set_voxel_data_atomic(int voxel_id, int pointer, int value){
 
 void main() {
     g_out.v_pos = vec4(offset.xyz, 0.0) + vec4(float(get_voxel_data(v_index+1, 1))*h, float(get_voxel_data(v_index+1, 2))*h, float(get_voxel_data(v_index+1, 3))*h, 1.0);
-    g_out.v_color = vec4(1.0, 1.0, 0.0, 1.0);//float(VoxelParticleNumber[v_index])/240.0);
+    g_out.v_color = vec4(1.0, 1.0, float(get_voxel_data(v_index+1, 31)), float(VoxelParticleNumber[v_index])/700);  // white->ok yellow->bug
 }

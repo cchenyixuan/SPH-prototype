@@ -13,31 +13,31 @@ from project_loader import Project
 class Demo:
     def __init__(self):
         # --case parameters--
-        self.H = 0.00125
-        self.R = 0.00025
-        self.c0 = 50  # about 10 times of max velocity in this system ensures the density variation less than 1%
+        self.H = 0.05
+        self.R = 0.005
+        self.c0 = 60  # about 10 times of max velocity in this system ensures the density variation less than 1%
         self.DELTA_T = 0.4*self.H/self.c0  # check CFL condition
         self.save_frequency = int((1/self.DELTA_T)/100)  # approx. 0.01s
-        self.VISCOSITY = 0.0003
-        self.COHESION = 0.0001
-        self.ADHESION = 0.0001
+        self.VISCOSITY = 0.005
+        self.COHESION = 0.000001
+        self.ADHESION = -0.000001
         self.REST_DENSE = 1000.0
         self.EOS_CONSTANT = self.c0**2 * self.REST_DENSE / 7  # c0**2*rho0/gamma
         self.PARTICLE_VOLUME = SolverCheck3D(self.H, self.R)()
 
-        self.voxel_buffer_file = r"F:\Fontan\18zhongxie\buffer.npy"
-        self.voxel_origin_offset = [-0.041533, -0.014125, -0.047605]
+        self.voxel_buffer_file = r"D:\ProgramFiles\PycharmProject\VoxelizationAlg\voxelization\buffer.npy"
+        self.voxel_origin_offset = [-1.3023989, -1.304125,  -1.306157]
         self.domain_particle_file = r".\models\domain.obj"
-        self.boundary_particle_file = r"F:\Fontan\18zhongxie\boundary.obj"
+        self.boundary_particle_file = r"models\demo_boundary.obj"
 
-        self.INLET1_file = r"F:\Fontan\18zhongxie\inlet1.obj"
-        self.INLET1_velocity = [0.0, 0.0, 0.602318665]
-        self.INLET1_area = 0.008**2*np.pi
-        self.INLET2_file = r"F:\Fontan\18zhongxie\inlet2.obj"
-        self.INLET2_velocity = [0.0, 0.0, -0.950702025]
-        self.INLET2_area = 0.003**2*np.pi
-        self.INLET3_file = r"F:\Fontan\18zhongxie\inlet3.obj"
-        self.INLET3_velocity = [0.0, 0.0, -0.971093794]
+        self.INLET1_file = r"models\demo_INLET1.obj"
+        self.INLET1_velocity = [0.0, 0.0, -1.0]
+        self.INLET1_area = 0.15**2*np.pi
+        self.INLET2_file = r"models\demo_INLET2.obj"
+        self.INLET2_velocity = [-1.0, 0.0, 0.0]
+        self.INLET2_area = 0.15**2*np.pi
+        self.INLET3_file = r"models\demo_INLET1.obj"
+        self.INLET3_velocity = [0.0, 0.0, 0.0]
         self.INLET3_area = 0.00275**2*np.pi
 
         self.INLET1_FLUX = self.INLET1_area * np.linalg.norm(self.INLET1_velocity)  # S1*||Velocity1||
@@ -53,6 +53,7 @@ class Demo:
         self.project = Project(
             self.H,
             self.R,
+            self.PARTICLE_VOLUME,
             self.REST_DENSE,
             self.voxel_buffer_file,
             self.voxel_origin_offset,
@@ -84,8 +85,8 @@ class Demo:
 
         print(self.particle_number, self.boundary_particle_number, self.voxel_number)
         # global status buffer
-        # [n_particle, n_boundary_particle, n_voxel, voxel_memory_length, voxel_block_size, voxel_group_size]
-        self.global_status = np.array((self.particle_number, self.boundary_particle_number, self.voxel_number, self.inlet1_particles.shape[0]//4, self.inlet2_particles.shape[0]//4, self.inlet3_particles.shape[0]//4, 0, 0, 0, 0, 0, 0), dtype=np.int32)
+        # [n_particle, ptr_last_particle, n_voxel, voxel_memory_length, voxel_block_size, voxel_group_size]
+        self.global_status = np.array((self.particle_number, self.particle_number, self.voxel_number, self.inlet1_particles.shape[0]//4, self.inlet2_particles.shape[0]//4, self.inlet3_particles.shape[0]//4, 0, 0, 0, 0, 0, 0), dtype=np.int32)
         self.global_status_float = np.array((self.H, self.R, self.DELTA_T, self.VISCOSITY, self.COHESION, self.ADHESION, *self.offset, 0.0, 0.0, 0.0), dtype=np.float32)
 
         # all shaders are filled with certain parameters and saved in ./runtime
@@ -111,7 +112,10 @@ class Demo:
                 "Coeff_Spiky_2d": 10 / (np.pi * self.H ** 5),
                 "Coeff_Spiky_3d": 15 / (np.pi * self.H ** 6),
                 "Coeff_Viscosity_2d": 40 / (np.pi * self.H ** 2),
-                "Coeff_Viscosity_3d": 15 / (2 * np.pi * self.H ** 3)
+                "Coeff_Viscosity_3d": 15 / (2 * np.pi * self.H ** 3),
+                "Coeff_Wendland_3d": 495 / (32 * np.pi * self.H ** 3),
+                "MAX_PARTICLE_MASS": 10*self.REST_DENSE*self.PARTICLE_VOLUME,
+                "ORIGINAL_PARTICLE_MASS": self.REST_DENSE*self.PARTICLE_VOLUME,
         })
         # initialize OpenGL
         # particles buffer
@@ -223,6 +227,9 @@ class Demo:
         # compute shader 2
         self.compute_shader_2 = compileProgram(
             compileShader(open("runtime/compute_2_density_pressure_solver.shader", "rb"), GL_COMPUTE_SHADER))
+        # compute shader 2b
+        self.compute_shader_2b = compileProgram(
+            compileShader(open("runtime/compute_2_density_derivative_solver.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 3
         self.compute_shader_3 = compileProgram(
             compileShader(open("runtime/compute_3_force_solver.shader", "rb"), GL_COMPUTE_SHADER))
@@ -232,6 +239,9 @@ class Demo:
         # compute shader 5
         self.compute_shader_5 = compileProgram(
             compileShader(open("runtime/compute_5_voxel_upgrade_solver.shader", "rb"), GL_COMPUTE_SHADER))
+        # compute shader 6
+        self.compute_shader_6 = compileProgram(
+            compileShader(open("runtime/compute_6_combine_solver.shader", "rb"), GL_COMPUTE_SHADER))
         # # compute shader a
         # self.compute_shader_a = compileProgram(
         #     compileShader(open("./MovingBoundaryShaders/compute_a_moving_boundary.shader", "rb"), GL_COMPUTE_SHADER))
@@ -305,19 +315,27 @@ class Demo:
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
 
             glUseProgram(self.compute_shader_2)
-            glDispatchCompute(self.MAX_PARTICLE_NUMBER//10000, 100, 100)
+            glDispatchCompute((self.particle_number+1000)//10000+1, 100, 100)
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
 
+            # glUseProgram(self.compute_shader_2b)
+            # glDispatchCompute(self.MAX_PARTICLE_NUMBER // 10000, 100, 100)
+            # glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
+
             glUseProgram(self.compute_shader_3)
-            glDispatchCompute(self.MAX_PARTICLE_NUMBER//10000, 100, 100)
+            glDispatchCompute((self.particle_number+1000)//10000+1, 100, 100)
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
 
             glUseProgram(self.compute_shader_4)
-            glDispatchCompute(self.MAX_PARTICLE_NUMBER//10000, 100, 100)
+            glDispatchCompute((self.particle_number+1000)//10000+1, 100, 100)
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
 
             glUseProgram(self.compute_shader_5)
             glDispatchCompute(self.voxel_number//9+1, 3, 3)
+            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
+
+            glUseProgram(self.compute_shader_6)
+            glDispatchCompute(self.voxel_number // 9 + 1, 3, 3)
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
 
             # pull global_status buffer back and add delta_t*S*v
@@ -344,6 +362,8 @@ class Demo:
             status_float[11] -= int(status_float[11])
             glNamedBufferSubData(self.sbo_global_status2, 0, 48, status_float)
             glNamedBufferSubData(self.sbo_global_status, 0, 48, status_int)
+            print(status_int[0], status_int[1])
+            self.particle_number = status_int[0]
             # print(status_int[0])
             # print(status_int[9:12])
             # print(status_float[9:12])
@@ -383,12 +403,12 @@ class Demo:
 
         glUseProgram(self.render_shader)
         glPointSize(2)
-        glDrawArrays(GL_POINTS, 0, self.MAX_PARTICLE_NUMBER)
+        glDrawArrays(GL_POINTS, 0, self.particle_number+1000)
 
         if show_vector:
             glUseProgram(self.render_shader_vector)
             glLineWidth(1)
-            glDrawArrays(GL_POINTS, 0, self.MAX_PARTICLE_NUMBER)
+            glDrawArrays(GL_POINTS, 0, self.particle_number+1000)
 
 
 

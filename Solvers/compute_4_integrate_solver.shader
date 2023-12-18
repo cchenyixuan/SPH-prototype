@@ -319,6 +319,7 @@ void arrange_voxel_particle_out(int flag, int voxel_id){
 
     }
     int destination_voxel_id = get_voxel_data(voxel_id, destination_voxel_pointer);  // starts from 1, if is 0: this particle should vanish
+    //
     if(destination_voxel_id>0){
         int i = atomicAdd(VoxelParticleInNumber[destination_voxel_id-1], 1);
         barrier();
@@ -422,7 +423,12 @@ void arrange_inlet_particle(){
         }
     }
     if(IsOccupied==true){
-        StatusInt[0] += 1;
+        // StatusInt[0] += 1;
+        atomicAdd(StatusInt[0], 1);
+        barrier();
+        // maximum particle index should be upgrade
+        atomicMax(StatusInt[1], particle_index);
+        barrier();
     }
 
 }
@@ -435,6 +441,10 @@ void EulerMethod(){
         arrange_inlet_particle();
     }
     else{
+        // rho += d_rho/dt * dt
+        // Particle[particle_index-1][2].w += delta_t*ParticleSubData[particle_index-1][3].x;
+        // p = EOS(rho)
+        // Particle[particle_index-1][3].w = max(eos_constant * (pow(Particle[particle_index-1][2].w/rest_dense, 7) -1), 0.0);
         // calculate future position
         //   move =             P_velocity           *   dt   +      P_acceleration  *     dt/2
         vec3 move = Particle[particle_index-1][1].xyz*delta_t + Particle[particle_index-1][3].xyz*delta_t*delta_t/2;

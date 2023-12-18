@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class SolverCheck3D:
     def __init__(self, h, r):
         self.H = h
@@ -10,25 +11,33 @@ class SolverCheck3D:
         # regular distribution
         self.buffer = self.regular_distribution()
         self.particle_volume = 4/3*np.pi*self.R**3
-        self.particle_volume = 1/self.kernel_sum()
+        self.particle_volume = 1/self.kernel_sum("wendland_3d")
+        self.kernel_sum("poly6_3d")
         self.kernel_sum("spiky_3d")
+        self.kernel_sum("wendland_3d")
+        self.kernel_sum("wendland_3d_c")
         self.buffer = self.irregular_distribution()
+        self.kernel_sum("poly6_3d")
         self.kernel_sum("spiky_3d")
-        self.kernel_sum()
+        self.kernel_sum("wendland_3d")
+        self.kernel_sum("wendland_3d_c")
 
     def __call__(self, *args, **kwargs):
         return self.particle_volume
 
-    def kernel_sum(self, kernel="poly6_3d"):
+    def kernel_sum(self, kernel_name="poly6_3d"):
         kernels = {"poly6_3d": self.poly6_3d,
-                   "spiky_3d": self.spiky_3d, }
-        kernel = kernels[kernel]
+                   "spiky_3d": self.spiky_3d,
+                   "wendland_3d": self.wendland_3d,
+                   "wendland_3d_c": self.wendland_3d_c,
+                   }
+        kernel = kernels[kernel_name]
         ans, count = 0.0, 0.0
         for particle in self.buffer:
             kernel_tmp = kernel(np.linalg.norm(particle), self.H)
             ans += kernel_tmp
             count += bool(kernel_tmp)
-        print(f"Kernel Sum: {ans}, Particle Count: {count}, Kernel Integral: {ans * self.particle_volume}")
+        print(f"Kernel: {kernel_name}, Kernel Sum: {ans}, Particle Count: {count}, Kernel Integral: {ans * self.particle_volume}")
         return ans
 
     @staticmethod
@@ -38,6 +47,21 @@ class SolverCheck3D:
     @staticmethod
     def spiky_3d(rij, h):
         return max(0.0, 15 / (np.pi * pow(h, 6)) * pow((h - rij), 3))
+
+    @staticmethod
+    def wendland_3d(rij, h_2):
+        h = h_2*0.5
+        q = rij / h
+        if q > 2:
+            return 0.0
+        return 495 / 256 / np.pi / h / h / h * pow(1 - q / 2, 6) * (35 / 12 * q * q + 3 * q + 1)
+
+    @staticmethod
+    def wendland_3d_c(rij, h):
+        q = rij / h
+        if q > 1:
+            return 0.0
+        return 495 / (32 * np.pi * h ** 3) * pow(1 - q, 6) * (35 / 3 * q * q + 6 * q + 1)
 
     def regular_distribution(self):
         origin = np.array([0.0, 0.0, 0.0], dtype=np.float64)
@@ -111,6 +135,8 @@ class SolverCheck2D:
     def spiky_2d(rij, h):
         return max(0.0, 10 / (np.pi * pow(h, 5)) * pow((h - rij), 3))
 
+
+
     def regular_distribution(self):
         origin = np.array([0.0, 0.0, 0.0], dtype=np.float64)
 
@@ -145,7 +171,7 @@ class SolverCheck2D:
 
 
 if __name__ == "__main__":
-    sc = SolverCheck2D(0.05, 0.005)
+    sc = SolverCheck3D(0.05, 0.005)
     particle_volume = sc()
     print(particle_volume)
     plt.scatter(sc.buffer[:, 0], sc.buffer[:, 1])

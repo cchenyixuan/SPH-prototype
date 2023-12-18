@@ -14,9 +14,11 @@ shader_src_list = [
     "Solvers/compute_1_init_inlet_particles.shader",
     "Solvers/compute_2_boundary_density_pressure_solver.shader",
     "Solvers/compute_2_density_pressure_solver.shader",
+    "Solvers/compute_2_density_derivative_solver.shader",
     "Solvers/compute_3_force_solver.shader",
     "Solvers/compute_4_integrate_solver.shader",
     "Solvers/compute_5_voxel_upgrade_solver.shader",
+    "Solvers/compute_6_combine_solver.shader",
     "VectorShaders/vector_vertex.shader",
     "VectorShaders/vector_geometry.shader",
     "VectorShaders/vector_fragment.shader",
@@ -55,6 +57,9 @@ const_variables = {
     "Coeff_Spiky_3d": lambda value: f"const float Coeff_Spiky_3d = {float(value)};\n",
     "Coeff_Viscosity_2d": lambda value: f"const float Coeff_Viscosity_2d = {float(value)};\n",
     "Coeff_Viscosity_3d": lambda value: f"const float Coeff_Viscosity_3d = {float(value)};\n",
+    "Coeff_Wendland_3d": lambda value: f"const float Coeff_Wendland_3d = {float(value)};\n",
+    "MAX_PARTICLE_MASS": lambda value: f"const float MAX_PARTICLE_MASS = {float(value)};\n",
+    "ORIGINAL_PARTICLE_MASS": lambda value: f"const float ORIGINAL_PARTICLE_MASS = {float(value)};\n",
 }
 
 

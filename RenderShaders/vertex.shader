@@ -126,6 +126,7 @@ vec3 get_color_gradient(float ratio, float range){
 void main() {
     if(Particle[v_index][0].w != 0.0){
         gl_Position = projection*view*vec4(Particle[v_index][0].xyz, 1.0); // set vertex position, w=1.0
+        gl_PointSize = Particle[v_index][1].w/1000/particle_volume+5.0;
         // int voxel_id = int(round(Particle[v_index][0].w));
         // vec3 voxel_center = vec3(float(Voxel[(voxel_id-1)*voxel_memory_length+1])*h, float(Voxel[(voxel_id-1)*voxel_memory_length+2])*h, float(Voxel[(voxel_id-1)*voxel_memory_length+3])*h);
         // float l = length(Particle[v_index][3].xyz);
@@ -143,10 +144,21 @@ void main() {
                 v_color = vec4(get_color_gradient(Particle[v_index][2].w/1000.0, 0.01).xyz, 1.0);
                 break;
             case 3:  // N phase
-                v_color = vec4(sin(ParticleSubData[v_index][3].w), cos(ParticleSubData[v_index][3].w), (sin(ParticleSubData[v_index][3].w)+cos(ParticleSubData[v_index][3].w))*0.5, 1.0);
+                if(ParticleSubData[v_index][3].w==1.0){v_color = vec4(0.0, 1.0, 0.0, 1.0);}
+                else if(ParticleSubData[v_index][3].w==2.0){v_color = vec4(1.0, 1.0, 0.0, 1.0);}
+                else if(ParticleSubData[v_index][3].w==3.0){v_color = vec4(0.0, 1.0, 1.0, 1.0);}
+                else if(ParticleSubData[v_index][3].w==4.0){v_color = vec4(0.0, 0.0, 1.0, 1.0);}
+                else{v_color = vec4(1.0, 0.0, 0.0, 1.0);}
                 break;
             case 4:  // kernel value
                 v_color = vec4(get_color_gradient(ParticleSubData[v_index][2].x, 0.02).xyz, 1.0);
+                break;
+            case 5:  // d_rho/dt
+                v_color = vec4(get_color_gradient(ParticleSubData[v_index][3].x, 0.02).xyz, 1.0);
+                break;
+            case 6:  // rho
+                v_color = vec4(Particle[v_index][2].w/1000, Particle[v_index][2].w/1000, Particle[v_index][2].w/1000, 1.0);
+                break;
         }
     }
     else{

@@ -3,11 +3,12 @@ from SpaceDivision import CreateVoxels
 
 
 class Project:
-    def __init__(self, h, r, rho, voxel, offset, domain, boundary, inlets):
+    def __init__(self, h, r, particle_volume, rho, voxel, offset, domain, boundary, inlets):
         self.h = h
         self.r = r
+        self.volume = particle_volume
         self.rho = rho
-        self.particle_mass = self.r**3*self.rho * 3/4 * np.pi
+        self.particle_mass = self.rho * self.volume
         self.voxels, self.offset = np.load(voxel), np.array(offset, dtype=np.float32)
         self.particles = self.load_domain(self.load_file(domain))
         self.boundary_particles = self.load_boundary(self.load_file(boundary))
@@ -60,7 +61,7 @@ class Project:
         output = np.zeros((particles.shape[0] * 4, 4), dtype=np.float32)
         for step, vertex in enumerate(particles):
             output[step * 4][:3] = vertex
-            output[step * 4 + 1][3] = self.particle_mass*2.50  # boundary has 4 times mass as usual particles
+            output[step * 4 + 1][3] = self.particle_mass*4.0  # boundary has 4 times mass as usual particles
             output[step * 4 + 2][3] = self.rho
             output[step * 4 + 3][3] = 0.0  # initial pressure
         return output

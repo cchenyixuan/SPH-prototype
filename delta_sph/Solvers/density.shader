@@ -10,10 +10,10 @@ layout(std430, binding=0) buffer Particles{
 };
 layout(std430, binding=1) buffer ParticlesSubData{
     // particle inside domain has additional data: t_transfer.xyz, 0.0, 0.0...;
+    // nabla_rho_L_x , nabla_rho_L_y , nabla_rho_L_z , 0
+    // psi_x , psi_y , psi_z , 0
     // 0 , 0 , 0 , 0
-    // 0 , 0 , 0 , 0
-    // 0 , 0 , 0 , 0
-    // 0 , 0 , 0 , group_id
+    // D_rho/dt , 0 , 0 , group_id
     mat4x4 ParticleSubData[];
 };
 layout(std430, binding=2) buffer BoundaryParticles{
@@ -101,32 +101,11 @@ const float Coeff_Poly6_2d = 1.0;  // 4 / (PI * pow(h, 8));
 const float Coeff_Poly6_3d = 1.0;  // 315 / (64 * PI * pow(h, 9));
 const float Coeff_Spiky_2d = 1.0;  // 10 / (PI * pow(h, 5));
 const float Coeff_Spiky_3d = 1.0;  // 15 / (PI * pow(h, 6));
-const float Coeff_Viscosity_2d = 1.0;  // 40 / (PI * h2);
-const float Coeff_Viscosity_3d = 1.0;  // 15 / (2 * PI * pow(h, 3));
-const float Coeff_Wendland_3d = 1.0;  // 495 / (256 * PI * pow(h, 3));
+const float Coeff_Viscosity_2d = 1.0; // 40 / (PI * h2);
+const float Coeff_Viscosity_3d = 1.0; // 15 / (2 * PI * pow(h, 3));
 
 
 float h2 = h * h;
-
-// coefficients
-// struct Coefficient{
-//     float Poly6_2d;
-//     float Poly6_3d;
-//     float Spiky_2d;
-//     float Spiky_3d;
-//     float Viscosity_2d;
-//     float Viscosity_3d;
-// };
-//
-// Coefficient coeff = Coefficient(
-//     4 / (PI * pow(h, 8)),
-//     315 / (64 * PI * pow(h, 9)),
-//     10 / (PI * pow(h, 5)),
-//     15 / (PI * pow(h, 6)),
-//     40 / (PI * h2),
-//     15 / (2 * PI * pow(h, 3))
-// );
-
 
 // poly6
 float poly6_2d(float rij, float h){
@@ -204,18 +183,6 @@ float lap_viscosity_2d(float rij, float h){
 float lap_viscosity_3d(float rij, float h){
     if (rij > h){return 0;}
     return Coeff_Viscosity_3d / (h * h2) * (h - rij);
-}
-// Wendland C4
-float wendland_3d(float rij, float h){
-    float q = rij/h;
-    if (q > 1){return 0;}
-    return Coeff_Wendland_3d * pow(1-q, 6)*(35/3*q*q+6*q+1);
-}
-vec3 grad_wendland_3d(float x, float y, float z, float rij, float h){
-    float q = rij/h;
-    if (q > 1){return vec3(0.0);}
-    float w_prime = Coeff_Wendland_3d / h * (-56/3) * q * (1+5*q) * pow(1-q, 5);
-    return w_prime * vec3(x / rij, y / rij, z / rij);
 }
 
 int get_voxel_data(int voxel_id, int pointer){
@@ -316,7 +283,6 @@ int set_voxel_data_atomic(int voxel_id, int pointer, int value){
 void ComputeParticleDensityPressure(){
     // DEBUG FOR KERNEL VALUE
     float kernel_value = 0.0;
-    float kernel_tmp = 0.0;
     // position of current particle focused
     vec3 particle_pos = Particle[particle_index-1][0].xyz;
     // delete its density and pressure last time, optional
@@ -334,15 +300,15 @@ void ComputeParticleDensityPressure(){
         if (index_j==0){break;}// empty slot
         // P_j is a domain particle
         else if (index_j>0){
+
             // distance rij
             float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
             // distance less than h
             if (rij<h){
-                kernel_tmp = wendland_3d(rij, h);
                 // add density to location (2, 2) of its mat4x4
                 //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
-                Particle[particle_index-1][2].w += Particle[index_j-1][1].w * kernel_tmp;
-                kernel_value += kernel_tmp;
+                Particle[particle_index-1][2].w += Particle[index_j-1][1].w * poly6_3d(rij, h);
+                kernel_value += poly6_3d(rij, h);
             }
         }
         // P_j is a boundary particle
@@ -353,10 +319,9 @@ void ComputeParticleDensityPressure(){
             float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
             // distance less than h
             if (rij<h){
-                kernel_tmp = wendland_3d(rij, h);
                 // add density to location (2, 2) of its mat4x4
                 //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
-                Particle[particle_index-1][2].w += BoundaryParticle[index_j-1][1].w * kernel_tmp;
+                Particle[particle_index-1][2].w += BoundaryParticle[index_j-1][1].w * poly6_3d(rij, h);
             }
         }
 
@@ -379,11 +344,10 @@ void ComputeParticleDensityPressure(){
                     float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
                     // distance less than h
                     if (rij<h){
-                        kernel_tmp = wendland_3d(rij, h);
                         // add density to location (2, 2) of its mat4x4
                         //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
-                        Particle[particle_index-1][2].w += Particle[index_j-1][1].w * kernel_tmp;
-                        kernel_value += kernel_tmp;
+                        Particle[particle_index-1][2].w += Particle[index_j-1][1].w * poly6_3d(rij, h);
+                        kernel_value += poly6_3d(rij, h);
                     }
                 }
                 else if (index_j<0){
@@ -393,10 +357,9 @@ void ComputeParticleDensityPressure(){
                     float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
                     // distance less than h
                     if (rij<h){
-                        kernel_tmp = wendland_3d(rij, h);
                         // add density to location (2, 2) of its mat4x4
                         //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
-                        Particle[particle_index-1][2].w += BoundaryParticle[index_j-1][1].w * kernel_tmp;
+                        Particle[particle_index-1][2].w += BoundaryParticle[index_j-1][1].w * poly6_3d(rij, h);
                     }
                 }
 
@@ -408,7 +371,7 @@ void ComputeParticleDensityPressure(){
     //   P_i_pressure    = EOS_CONST * ((P_i_rho/REST_DENS)**7 - 1)
     // EOS_CONST = rho0 * (10*v_max)**2 / gamma, where gamma = 7 in this case
     // Particle[particle_index-1][2].w /= particle_volume*kernel_value;
-    Particle[particle_index-1][3].w = max(eos_constant * (pow(Particle[particle_index-1][2].w/rest_dense, 1) -1), 0.0);
+    Particle[particle_index-1][3].w = max(eos_constant * (pow(Particle[particle_index-1][2].w/rest_dense, 7) -1), 0.0);
     ParticleSubData[particle_index-1][2].x = particle_volume*kernel_value;
 }
 
