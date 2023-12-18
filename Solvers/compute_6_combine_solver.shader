@@ -377,8 +377,8 @@ void SelfAdaptiveParticle(){
         // max_type = max(max_type, ParticleSubData[current_particle_id-1][3].w);
     }
     // combine if max_velocity_magnitude < threshold
-    if(max_velocity_magnitude<0.1 && !empty_voxel){
-        CombineNearBy(0.9*r);
+    if(max_velocity_magnitude<0.05 && !empty_voxel){
+        CombineNearBy(0.5*r);
     }
     // split if max_velocity_magnitude > threshold
     else if(max_velocity_magnitude>0.2 && !empty_voxel){

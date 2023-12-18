@@ -374,7 +374,7 @@ void ComputeParticleForce(){
                 // a_visco  += VISC * 2*(dimension+2) * MASS_j/P_j_rho * (P_i_v - P_j_v)*(P_i_x-P_j_x)/(rij*rij + 0.01*H**2) * grad_spiky_3d(xij, rij, H)
                 a_viscosity += viscosity* 10 * (Particle[index_j-1][1].w/Particle[index_j-1][2].w) * dot(Particle[particle_index-1][1].xyz-Particle[index_j-1][1].xyz, Particle[particle_index-1][0].xyz-Particle[index_j-1][0].xyz)/(rij*rij+0.01*h2) * kernel_tmp;
                 // f_cohesion -= COHESION * MASS_j*(P_i_x-P_j_x)*poly6_3d(rij, h);
-                f_cohesion -= cohesion * Particle[index_j-1][1].w*xij*poly6_3d(rij, h);
+                f_cohesion -= cohesion * Particle[index_j-1][1].w*xij*wendland_3d(rij, h);
 
                 // f_transfer += MASS_i*VISC_TRANSFER * 1/rho_i * (P_i_v_angluar-P_j_v_angluar)xgrad_spiky_3d(xij.x, xij.y, xij.z, rij, h);  // VISC_TRANSFER refers to mu/rho
                 // f_transfer += Particle[particle_index-1][1].w*VISC_TRANSFER/Particle[particle_index-1][2].w * cross((Particle[particle_index-1][2].xyz-Particle[index_j-1][2].xyz), grad_spiky_3d(xij.x, xij.y, xij.z, rij, h));
@@ -403,7 +403,7 @@ void ComputeParticleForce(){
                 // a_visco  += VISC * 2*(dimension+2) * MASS_j/P_j_rho * (P_i_v - P_j_v)*(P_i_x-P_j_x)/(rij*rij + 0.01*H**2) * grad_spiky_3d(xij, rij, H)
                 a_viscosity += viscosity* 10 * (BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w) * dot(Particle[particle_index-1][1].xyz-BoundaryParticle[index_j-1][1].xyz, Particle[particle_index-1][0].xyz-BoundaryParticle[index_j-1][0].xyz)/(rij*rij+0.01*h2) * kernel_tmp;
                 // f_adhesion -= ADHESION * MASS_j*(P_i_x-P_j_x)*poly6_3d(rij, h);
-                f_adhesion -= adhesion * BoundaryParticle[index_j-1][1].w*xij*poly6_3d(rij, h);
+                f_adhesion -= adhesion * BoundaryParticle[index_j-1][1].w*xij*wendland_3d(rij, h);
             }
         }
 
@@ -439,7 +439,7 @@ void ComputeParticleForce(){
                         // a_visco  += VISC * 2*(dimension+2) * MASS_j/P_j_rho * (P_i_v - P_j_v)*(P_i_x-P_j_x)/(rij*rij + 0.01*H**2) * grad_spiky_3d(xij, rij, H)
                         a_viscosity += viscosity* 10 * (Particle[index_j-1][1].w/Particle[index_j-1][2].w) * dot(Particle[particle_index-1][1].xyz-Particle[index_j-1][1].xyz, Particle[particle_index-1][0].xyz-Particle[index_j-1][0].xyz)/(rij*rij+0.01*h2) * kernel_tmp;
                         // f_cohesion -= COHESION * MASS_j*(P_i_x-P_j_x)*poly6_3d(rij, h);
-                        f_cohesion -= cohesion * Particle[index_j-1][1].w*xij*poly6_3d(rij, h);
+                        f_cohesion -= cohesion * Particle[index_j-1][1].w*xij*wendland_3d(rij, h);
 
                         // f_transfer += MASS_i*VISC_TRANSFER * 1/rho_i * (P_i_v_angluar-P_j_v_angluar)xgrad_spiky_3d(xij.x, xij.y, xij.z, rij, h);  // VISC_TRANSFER refers to mu/rho
                         // f_transfer += Particle[particle_index-1][1].w*VISC_TRANSFER/Particle[particle_index-1][2].w * cross((Particle[particle_index-1][2].xyz-Particle[index_j-1][2].xyz), grad_spiky_3d(xij.x, xij.y, xij.z, rij, h));
@@ -468,7 +468,7 @@ void ComputeParticleForce(){
                         // a_visco  += VISC * 2*(dimension+2) * MASS_j/P_j_rho * (P_i_v - P_j_v)*(P_i_x-P_j_x)/(rij*rij + 0.01*H**2) * grad_spiky_3d(xij, rij, H)
                         a_viscosity += viscosity* 10 * (BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w) * dot(Particle[particle_index-1][1].xyz-BoundaryParticle[index_j-1][1].xyz, Particle[particle_index-1][0].xyz-BoundaryParticle[index_j-1][0].xyz)/(rij*rij+0.01*h2) * kernel_tmp;
                         // f_adhesion -= ADHESION * MASS_j*(P_i_x-P_j_x)*poly6_3d(rij, h);
-                        f_adhesion -= adhesion * BoundaryParticle[index_j-1][1].w*xij*poly6_3d(rij, h);
+                        f_adhesion -= adhesion * BoundaryParticle[index_j-1][1].w*xij*wendland_3d(rij, h);
 
                         // f_visco = m_i*mu*lap(v_i)
                         //lap_v_i  = sum{m_i*mu * m_j/rho_j * (vi-vj) * 2||(lap_W(ij))||/||rij||}

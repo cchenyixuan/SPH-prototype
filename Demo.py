@@ -18,9 +18,9 @@ class Demo:
         self.c0 = 60  # about 10 times of max velocity in this system ensures the density variation less than 1%
         self.DELTA_T = 0.4*self.H/self.c0  # check CFL condition
         self.save_frequency = int((1/self.DELTA_T)/100)  # approx. 0.01s
-        self.VISCOSITY = 0.005
-        self.COHESION = 0.000001
-        self.ADHESION = -0.000001
+        self.VISCOSITY = 0.004
+        self.COHESION = 0.001
+        self.ADHESION = 0.0
         self.REST_DENSE = 1000.0
         self.EOS_CONSTANT = self.c0**2 * self.REST_DENSE / 7  # c0**2*rho0/gamma
         self.PARTICLE_VOLUME = SolverCheck3D(self.H, self.R)()
@@ -31,11 +31,11 @@ class Demo:
         self.boundary_particle_file = r"models\demo_boundary.obj"
 
         self.INLET1_file = r"models\demo_INLET1.obj"
-        self.INLET1_velocity = [0.0, 0.0, -1.0]
-        self.INLET1_area = 0.15**2*np.pi
+        self.INLET1_velocity = [0.0, 0.0, -0.5]
+        self.INLET1_area = 0.075**2*np.pi
         self.INLET2_file = r"models\demo_INLET2.obj"
-        self.INLET2_velocity = [-1.0, 0.0, 0.0]
-        self.INLET2_area = 0.15**2*np.pi
+        self.INLET2_velocity = [-0.5, 0.0, 0.0]
+        self.INLET2_area = 0.075**2*np.pi
         self.INLET3_file = r"models\demo_INLET1.obj"
         self.INLET3_velocity = [0.0, 0.0, 0.0]
         self.INLET3_area = 0.00275**2*np.pi
@@ -114,7 +114,7 @@ class Demo:
                 "Coeff_Viscosity_2d": 40 / (np.pi * self.H ** 2),
                 "Coeff_Viscosity_3d": 15 / (2 * np.pi * self.H ** 3),
                 "Coeff_Wendland_3d": 495 / (32 * np.pi * self.H ** 3),
-                "MAX_PARTICLE_MASS": 10*self.REST_DENSE*self.PARTICLE_VOLUME,
+                "MAX_PARTICLE_MASS": 6*self.REST_DENSE*self.PARTICLE_VOLUME,
                 "ORIGINAL_PARTICLE_MASS": self.REST_DENSE*self.PARTICLE_VOLUME,
         })
         # initialize OpenGL
