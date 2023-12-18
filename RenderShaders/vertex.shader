@@ -159,6 +159,9 @@ void main() {
             case 6:  // rho
                 v_color = vec4(Particle[v_index][2].w/1000, Particle[v_index][2].w/1000, Particle[v_index][2].w/1000, 1.0);
                 break;
+            case 7:  // curl
+                v_color = vec4(ParticleSubData[v_index][1].xyz/ParticleSubData[v_index][3].z, 1.0);
+                break;
         }
     }
     else{
