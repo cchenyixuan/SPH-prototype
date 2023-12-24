@@ -54,7 +54,7 @@ uniform mat4 projection;
 uniform mat4 view;
 
 void main() {
-    if(Particle[v_index][0].w != 0.0){
+    if(Particle[v_index][0].w >= 0.0){
         g_out.v_pos = vec4(Particle[v_index][0].xyz, 1.0); // set vertex position, w=1.0
         switch(vector_type){
             case 0:  // velocity

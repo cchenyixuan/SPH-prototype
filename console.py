@@ -5,7 +5,7 @@ import pyrr
 import numpy as np
 from OpenGL.GL import *
 import glfw
-import Demo
+import WSSD_demo as Demo
 from camera import Camera
 from PIL import Image
 from Coordinates import Coord
@@ -136,7 +136,7 @@ class DisplayPort:
                 glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
 
             # render codes
-            self.demo(self.counter, pause=self.pause, show_vector=self.show_vector, show_boundary=self.show_boundary,
+            self.demo(self.current_step % self.demo.io.number, pause=self.pause, show_vector=self.show_vector, show_boundary=self.show_boundary,
                       show_voxel=self.show_voxel)
             # export boundary_data
             # if self.current_step % self.demo.save_frequency == 0 and self.current_step != 0:
@@ -268,9 +268,9 @@ class DisplayPort:
                     a1 = np.frombuffer(glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 5000000 * 64),
                                        dtype=np.float32)
                     self.b = np.reshape(a1, (-1, 4))
-                    # print(np.hstack((self.a[:80], self.b[:80])))
-                    print(f"Total Particle: {sum([True if item[0, 3] else False for item in self.a.reshape((-1, 4, 4))])}")
-                    print(f"Largest Index: {np.max([step for step, item in enumerate(self.a.reshape((-1, 4, 4))) if item[0, 3] != 0])}")
+                    print(self.a[:80])
+                    # print(f"Total Particle: {sum([True if item[0, 3] else False for item in self.a.reshape((-1, 4, 4))])}")
+                    # print(f"Largest Index: {np.max([step for step, item in enumerate(self.a.reshape((-1, 4, 4))) if item[0, 3] != 0])}")
                     # maxi = 0.0
                     # maxi_sample = 0.0
                     # for item in self.a.reshape((-1, 4, 4)):

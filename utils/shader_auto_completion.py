@@ -27,6 +27,9 @@ shader_src_list = [
     "VoxelShaders/voxel_geometry.shader",
     "VoxelShaders/voxel_fragment.shader",
     "VoxelShaders/voxel_compute.shader",
+    "Solvers_WSSD/wssd_compute_1_init_domain_particles.shader",
+    "Solvers_WSSD/wssd_compute_2_density_pressure_solver.shader",
+    "Solvers_WSSD/wssd_compute_3_force_solver.shader",
 ]
 shader_export_list = [
     export_dir+"/"+shader.split("/")[-1] for shader in shader_src_list

@@ -124,9 +124,9 @@ vec3 get_color_gradient(float ratio, float range){
 }
 
 void main() {
-    if(Particle[v_index][0].w != 0.0){
+    if(Particle[v_index][0].w >= 0.0){
         gl_Position = projection*view*vec4(Particle[v_index][0].xyz, 1.0); // set vertex position, w=1.0
-        gl_PointSize = Particle[v_index][1].w/1000/particle_volume+5.0;
+        gl_PointSize = 4.0;
         // int voxel_id = int(round(Particle[v_index][0].w));
         // vec3 voxel_center = vec3(float(Voxel[(voxel_id-1)*voxel_memory_length+1])*h, float(Voxel[(voxel_id-1)*voxel_memory_length+2])*h, float(Voxel[(voxel_id-1)*voxel_memory_length+3])*h);
         // float l = length(Particle[v_index][3].xyz);
@@ -160,7 +160,10 @@ void main() {
                 v_color = vec4(Particle[v_index][2].w/1000, Particle[v_index][2].w/1000, Particle[v_index][2].w/1000, 1.0);
                 break;
             case 7:  // curl
-                v_color = vec4(ParticleSubData[v_index][1].xyz/ParticleSubData[v_index][3].z, 1.0);
+                v_color = vec4(abs(ParticleSubData[v_index][1].xyz)/ParticleSubData[v_index][3].z, 1.0);
+                break;
+            case 8:  // wssd
+                v_color = vec4(Particle[v_index][2].w, -Particle[v_index][2].w, 0.0, 1.0);
                 break;
         }
     }
