@@ -140,9 +140,13 @@ class SolverCheck2D:
 
         # create a pcd around origin with x,y,z = +-h
         # regular distribution
-        self.buffer = self.regular_distribution()
-        self.particle_volume = 4 / 3 * np.pi * self.R ** 3
+        self.buffer = self.star_distribution()
+        # self.buffer = self.irregular_distribution()
+        self.particle_volume = np.pi * self.R ** 2
+        self.kernel_sum("wendland_2d")
+        self.tv = 4 / 3 * np.pi * self.R ** 3
         self.particle_volume = 1 / self.kernel_sum("wendland_2d")
+        print(self.particle_volume-self.tv)
         self.kernel_sum("poly6_2d")
         self.kernel_sum("spiky_2d")
         self.kernel_sum("wendland_2d")
@@ -159,6 +163,7 @@ class SolverCheck2D:
         self.grad_kernel_sum("grad_spiky_2d")
         self.laplacian("grad_wendland_2d")
         self.laplacian("grad_spiky_2d")
+        self.outer_kernel_sum("grad_wendland_2d")
 
     def __call__(self, *args, **kwargs):
         return self.particle_volume
@@ -170,9 +175,11 @@ class SolverCheck2D:
         kernel = kernels[kernel]
         ans, count = 0.0, 0.0
         for particle in self.buffer:
-            kernel_tmp = kernel(np.linalg.norm(particle), self.H)
-            ans += kernel_tmp
-            count += bool(kernel_tmp)
+            rij = np.linalg.norm(particle[:2])
+            if rij != 0.0:
+                kernel_tmp = kernel(np.linalg.norm(particle), self.H)
+                ans += kernel_tmp
+                count += bool(kernel_tmp)
         print(f"Kernel Sum: {ans}, Particle Count: {count}, Kernel Integral: {ans * self.particle_volume}")
         return ans
 
@@ -184,15 +191,36 @@ class SolverCheck2D:
         kernel = kernels[kernel_name]
         ans, count = np.zeros((2,), dtype=np.longfloat), 0
         for particle in self.buffer:
-            kernel_tmp = kernel(*particle[:2], np.linalg.norm(particle[:2]), self.H)
-            ans += kernel_tmp
-            count += bool(np.linalg.norm(kernel_tmp))
+            rij = np.linalg.norm(particle[:2])
+            if rij != 0.0:
+
+                kernel_tmp = kernel(*particle[:2], np.linalg.norm(particle[:2]), self.H)
+                ans += kernel_tmp
+                count += bool(np.linalg.norm(kernel_tmp))
         print(
             f"Kernel: {kernel_name}, Kernel Sum: {ans}, Particle Count: {count}, Kernel Integral: {ans * self.particle_volume}")
         return ans
 
+    def outer_kernel_sum(self, kernel_name="grad_wendland_2d"):
+        kernels = {
+            "grad_wendland_2d": self.grad_wendland_2d,
+            "grad_spiky_2d": self.grad_spiky_2d,
+        }
+        kernel = kernels[kernel_name]
+        ans, count = np.zeros((2, 2), dtype=np.longfloat), 0
+        for particle in self.buffer:
+            rij = np.linalg.norm(particle[:2])
+            if rij != 0.0:
+                if True:
+                    kernel_tmp = kernel(*particle[:2], np.linalg.norm(particle[:2]), self.H)
+                    ans -= np.outer(particle[:2], kernel_tmp)
+                    count += bool(np.linalg.norm(kernel_tmp))
+        print(
+            f"Kernel: {kernel_name}, Kernel Sum: {ans}, \nParticle Count: {count}, Outer Integral: {ans * self.particle_volume}")
+        return ans
+
     def laplacian(self, kernel_name="grad_wendland_2d"):
-        #Particle[particle_index-1][2].x -= particle_volume * (Particle[particle_index-1][2].z-Particle[index_j-1][2].z) * 2 * length(kernel_tmp)/(rij);
+        # Particle[particle_index-1][2].x -= particle_volume * (Particle[particle_index-1][2].z-Particle[index_j-1][2].z) * 2 * length(kernel_tmp)/(rij);
         kernels = {
             "grad_wendland_2d": self.grad_wendland_2d,
             "grad_spiky_2d": self.grad_spiky_2d,
@@ -203,10 +231,10 @@ class SolverCheck2D:
             rij = np.linalg.norm(particle[:2])
             if rij != 0.0:
                 kernel_tmp = kernel(*particle[:2], rij, self.H)
-                ans += np.linalg.norm(kernel_tmp)*2/rij * (rij)
+                ans += np.linalg.norm(kernel_tmp) * 2 / rij
                 count += bool(np.linalg.norm(kernel_tmp))
         print(
-            f"Kernel: {kernel_name}, Laplacian: {ans*self.particle_volume}, Particle Count: {count}")
+            f"Kernel: {kernel_name}, Laplacian: {ans * self.particle_volume}, Particle Count: {count}")
         return ans
 
     @staticmethod
@@ -239,8 +267,27 @@ class SolverCheck2D:
         if rij > h:
             return np.zeros((2,), dtype=np.longfloat)
         coefficient = 9 / np.pi / h ** 2
-        return coefficient * (-56 / 3) * (1 / h / h) * (1 - rij / h) ** 5 * (5 * rij / h + 1) * np.array([x, y],
-                                                                                                         dtype=np.longfloat)
+        return coefficient * (-56 / 3) * (1 / h / h) * (1 - rij / h) ** 5 * (5 * rij / h + 1) * np.array([x, y], dtype=np.longfloat)
+
+    def star_distribution(self):
+        origin = np.array([0.0, 0.0, 0.0], dtype=np.longfloat)
+        shape_x = int(5 + 2 * ((self.H - self.R) // (2 * self.R)))
+        row = np.zeros((shape_x, 3), dtype=np.longfloat)
+        offset_x = np.array([self.R * 2, 0.0, 0.0], dtype=np.longfloat)
+        row[0] = origin
+        for i in range(1, shape_x):
+            row[i] = origin + offset_x * np.array([np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1), 0.0, 0.0],
+                                                  dtype=np.longfloat)
+        shape_y = int(5 + 2 * ((self.H - self.R) // (2 * self.R)))
+        layer = np.zeros((shape_y, shape_x, 3), dtype=np.longfloat)
+        offset_y = np.array([self.R, np.sqrt(3) * self.R, 0.0], dtype=np.longfloat)
+        layer[0] = row
+        for i in range(1, shape_y):
+            layer[i] = row + offset_y * np.array(
+                [np.sign((i - 1) % 4 - 1.5) * (((i - 1) // 2 + 1) % 2), np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1), 0.0],
+                dtype=np.longfloat)
+
+        return layer.reshape((-1, 3))
 
     def regular_distribution(self):
         origin = np.array([0.0, 0.0, 0.0], dtype=np.longfloat)
@@ -272,14 +319,20 @@ class SolverCheck2D:
         return buffer.reshape((-1, 3))
 
     def irregular_distribution(self):
-        return np.random.random(self.buffer.shape) * self.R * 2 + self.buffer
+        return np.random.random(self.buffer.shape) * self.R * 1 + self.buffer
 
 
 if __name__ == "__main__":
-    sc = SolverCheck2D(0.05, 0.0025)
+    h = 0.002
+    r = 0.00005
+    sc = SolverCheck2D(h, r)
     particle_volume = sc()
     print(particle_volume)
-    plt.scatter(sc.buffer[:, 0], sc.buffer[:, 1])
-    plt.xlim([-0.05, 0.05])
-    plt.ylim([-0.05, 0.05])
+    # Creating figure
+    fig = plt.figure(figsize=(10, 7))
+    ax = plt.axes(projection="3d")
+
+    ax.scatter(sc.buffer[:, 0], sc.buffer[:, 1], [sum(sc.grad_wendland_2d(p[0], p[1], np.linalg.norm(p[:2]), h)) for p in sc.buffer])
+    # plt.xlim([-0.2 * h, 0.2 * h])
+    # plt.ylim([-0.2 * h, 0.2 * h])
     plt.show()

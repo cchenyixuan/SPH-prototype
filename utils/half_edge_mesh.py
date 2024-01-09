@@ -43,7 +43,7 @@ class HalfEdgeFacet:
         elif adjoins == "vertex":
             return [half_edge.pair.facet for half_edge in self.half_edge]
 
-    def normal(self):
+    def cal_normal(self):
         vertex = []
         for half_edge in self.half_edge:
             vertex.append(half_edge.vertex)
