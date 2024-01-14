@@ -1,233 +1,203 @@
 import numpy as np
-
-
-class Point:
-    def __init__(self, x, y, z):
-        self.position = np.array((x, y, z), dtype=np.float32)
-        self.x = x
-        self.y = y
-        self.z = z
-
-    def __sub__(self, point):
-        return Point(*(self.position - point.position))
-
-    def __add__(self, point):
-        return Point(*(self.position + point.position))
-
-    def __neg__(self):
-        return Point(*-self.position)
-
-    def __mul__(self, other):
-        return Point(*(other*self.position))
-
-    def __truediv__(self, other):
-        return Point(*(self.position/other))
-
-    def __eq__(self, point):
-        return self.x == point.x and self.y == point.y and self.z == point.z
-
-    def length(self):
-        return np.linalg.norm(self.position)
-
-    def __repr__(self):
-        return f"<Point>: {self.x}, {self.y}, {self.z}"
-
-    def __hash__(self):
-        return hash((self.x, self.y, self.z))
-
-    def __getitem__(self, item):
-        return self.position[item]
-
-
-class Edge:
-    def __init__(self, point_a, point_b):
-        self.point_a = point_a
-        self.point_b = point_b
-
-    def __repr__(self):
-        return f"<Edge>: {self.point_a}, {self.point_b}"
-
-    def __hash__(self):
-        return hash((self.point_a, self.point_b))
-
-    def __eq__(self, edge):
-        return (
-                (self.point_a == edge.point_a) and (self.point_b == edge.point_b)) or \
-            ((self.point_b == edge.point_a) and (self.point_a == edge.point_b)
-             )
-
-    def length(self):
-        return np.linalg.norm(self.point_a-self.point_b)
-
-
-class Facet:
-    def __init__(self, point_a, point_b, point_c):
-        self.point_a = point_a
-        self.point_b = point_b
-        self.point_c = point_c
-        self.center = (self.point_a + self.point_b + self.point_c) / 3
-        tmp = np.cross(self.point_b.position - self.point_a.position, self.point_c.position - self.point_b.position)
-        self.normal = Point(*(tmp / np.linalg.norm(tmp)))
-
-        self.edge_a = Edge(self.point_a, self.point_b)
-        self.edge_b = Edge(self.point_b, self.point_c)
-        self.edge_c = Edge(self.point_c, self.point_a)
-
-    def flip_normal(self):
-        self.point_b, self.point_c = self.point_c, self.point_b
-        self.normal *= -1
-        return self
-
-    def get_distance(self, point):
-        return np.dot(self.normal.position, point.position-self.center.position)
-
-    def __eq__(self, other):
-        if self.center == other.center:
-            return True
-        else:
-            return False
-
-    def __hash__(self):
-        return hash((self.point_a, self.point_b, self.point_c))
-
-    def __repr__(self):
-        return f"<Facet>: Normal: {self.normal}, \n{self.edge_a}, \n{self.edge_b}, \n{self.edge_c}"
-
-class Mesh:
-    ...
-
-class MeshIO:
-    def __init__(self):
-        self.file_name = None
-
-
-class Block:
-    def __init__(self, facet: Facet, point_cloud: np.ndarray):
-        self.facet = facet
-        self.point_cloud = point_cloud
-
-    def find_farthest_point(self):
-        facet_center = self.facet.center
-        normal = self.facet.normal
-        max_distance = 0.0
-        farthest_point = None
-        for vertex in self.point_cloud:
-            v = vertex - facet_center
-            # the true distance is thus calculated by: cos(\theta) \cdot distance = v \cdot n / |v|
-            distance = np.dot(v, normal) / np.linalg.norm(v)
-            if distance > max_distance:
-                max_distance = distance
-                farthest_point = vertex
-        return farthest_point
-
-    def build_new_block(self, check_list):
-        farthest_point = self.find_farthest_point()
-        new_blocks = []
-        for block in check_list:
-            # if we can see this facet at the vertex
-            if np.dot(farthest_point - block.facet.center, block.facet.normal) >= 0:
-                # we create 3 new block
-                # the first block is farthest_point, block.facet.vertex_1, block.facet.vertex_2 and some vertices
-                new_facet = Facet(farthest_point, block.facet.vertex_1, block.facet.vertex_2)
-                particle_cloud = []
-                remained_particle_cloud = []
-                for particle in block.point_cloud:
-                    if np.dot(particle - new_facet.center, new_facet.normal) > 0:
-                        particle_cloud.append(particle)
-                    else:
-                        remained_particle_cloud.append(particle)
-                new_blocks.append(Block(new_facet, np.array(particle_cloud)))
-                # the second block is farthest_point, block.facet.vertex_2, block.facet.vertex_3 and some vertices
-                new_facet = Facet(farthest_point, block.facet.vertex_2, block.facet.vertex_3)
-                particle_cloud = []
-                remained_remained_particle_cloud = []
-                for particle in remained_particle_cloud:
-                    if np.dot(particle - new_facet.center, new_facet.normal) > 0:
-                        particle_cloud.append(particle)
-                    else:
-                        remained_remained_particle_cloud.append(particle)
-                new_blocks.append(Block(new_facet, np.array(particle_cloud)))
-                # the third block is farthest_point, block.facet.vertex_3, block.facet.vertex_1 and some vertices
-                new_facet = Facet(farthest_point, block.facet.vertex_3, block.facet.vertex_1)
-                particle_cloud = []
-                for particle in remained_remained_particle_cloud:
-                    if np.dot(particle - new_facet.center, new_facet.normal) > 0:
-                        particle_cloud.append(particle)
-                new_blocks.append(Block(new_facet, np.array(particle_cloud)))
-        return new_blocks
-
-    def __repr__(self):
-        print(self.facet, self.point_cloud)
-        return f"{self.facet}, {self.point_cloud}"
+from half_edge_mesh import HalfEdgeMesh, HalfEdge, HalfEdgeVertex, HalfEdgeFacet
+from collections import deque
 
 
 class QuickConvexHull:
     def __init__(self, point_cloud):
-        self.point_cloud = point_cloud
-        self.p1 = point_cloud[point_cloud[:, 0].argmax()]
-        self.p2 = point_cloud[point_cloud[:, 0].argmin()]
-        self.p3 = point_cloud[point_cloud[:, 1].argmax()]
-        self.p4 = point_cloud[point_cloud[:, 1].argmin()]
-        self.p5 = point_cloud[point_cloud[:, 2].argmax()]
-        self.p6 = point_cloud[point_cloud[:, 2].argmin()]
-        self.points = [self.p1, self.p2, self.p3, self.p4, self.p5, self.p6]
-        sorted_p = sorted(
-            [(np.linalg.norm(a - b), a, b) for step, a in enumerate(self.points[:-1]) for b in self.points[step + 1:]])
-        p1 = sorted_p[0][1]
-        p2 = sorted_p[0][2]
+        self.point_cloud = HalfEdgeMesh(point_cloud, [])
+        self.initial_tetrahedron = self.make_tetrahedron()
+        self.deque = deque(
+            [self.get_outside_vertices(facet, []) for facet in self.initial_tetrahedron.half_edge_facets.values()])
+        self.iteration()
 
-        self.check_list = []
-        facet = Facet(self.p1, self.p5, self.p2)
-        particle_cloud = []
-        remained_particle_cloud = []
-        for particle in self.point_cloud:
-            if np.dot(particle - facet.center, facet.normal) > 0:
-                particle_cloud.append(particle)
+    def make_tetrahedron(self):
+        # find 6 point with the largest x, y, z
+        max_x = [-np.inf, -1]
+        max_y = [-np.inf, -1]
+        max_z = [-np.inf, -1]
+        min_x = [np.inf, -1]
+        min_y = [np.inf, -1]
+        min_z = [np.inf, -1]
+        for vertex in self.point_cloud.half_edge_vertices.values():
+            if vertex.x > max_x[0]:
+                max_x = vertex.x, vertex
+            if vertex.y > max_y[0]:
+                max_y = vertex.y, vertex
+            if vertex.z > max_z[0]:
+                max_z = vertex.z, vertex
+            if vertex.x < min_x[0]:
+                min_x = vertex.x, vertex
+            if vertex.y < min_y[0]:
+                min_y = vertex.y, vertex
+            if vertex.z < min_z[0]:
+                min_z = vertex.z, vertex
+        base_points = [max_x[1], max_y[1], max_z[1], min_x[1], min_y[1], min_z[1]]
+        # build first line with the most distant 2 points
+        _, vertex1, vertex2 = sorted(
+            [(np.linalg.norm(p1 - p2), p1, p2) for _, p1 in enumerate(base_points[:-1]) for p2 in base_points[_ + 1:]])[
+            -1]
+        half_edge1 = HalfEdge(vertex1, None, None, None, 0)
+        half_edge1p = HalfEdge(vertex2, None, None, None, 3)
+        half_edge1.pair = half_edge1p
+        half_edge1p.pair = half_edge1
+        # build first plane with the most distant point to the first line
+        max_distance = 0.0
+        vertex3 = None
+        for vertex in self.point_cloud.half_edge_vertices.values():
+            distance = self.get_distance(vertex, half_edge1)
+            if distance > max_distance:
+                max_distance = distance
+                vertex3 = vertex
+        half_edge2 = HalfEdge(vertex2, None, None, None, 1)
+        half_edge2p = HalfEdge(vertex3, None, None, None, 4)
+        half_edge2.pair = half_edge2p
+        half_edge2p.pair = half_edge2
+        half_edge3 = HalfEdge(vertex3, None, None, None, 2)
+        half_edge3p = HalfEdge(vertex1, None, None, None, 5)
+        half_edge3.pair = half_edge3p
+        half_edge3p.pair = half_edge3
+        half_edge1.next = half_edge2
+        half_edge2.next = half_edge3
+        half_edge3.next = half_edge1
+        facet1 = HalfEdgeFacet(0)
+        facet1.half_edge[half_edge1.index] = half_edge1
+        facet1.half_edge[half_edge2.index] = half_edge2
+        facet1.half_edge[half_edge3.index] = half_edge3
+        # find forth vertex most distant to the first plane
+        max_distance = 0.0
+        vertex4 = None
+        for vertex in self.point_cloud.half_edge_vertices.values():
+            distance = self.get_distance(vertex, facet1)
+            if abs(distance) > abs(max_distance):
+                max_distance = distance
+                vertex4 = vertex
+        vertices = [vertex1.numpy, vertex2.numpy, vertex3.numpy, vertex4.numpy]
+        if max_distance > 0:
+            # flip facet1
+            facets = [[0, 2, 1], [0, 3, 2], [0, 1, 3], [1, 2, 3]]
+        else:
+            facets = [[0, 1, 2], [0, 2, 3], [0, 3, 1], [1, 3, 2]]
+        return HalfEdgeMesh(vertices, facets)
+
+    def iteration(self):
+        while self.deque:
+            print(len(self.deque))
+            facet, outside_vertices = self.deque.pop()  # HalfEdgeFacet, [HalfEdgeVertex]
+            if len(outside_vertices) > 0:  # need to upgrade
+                # find the most distant vertex
+                max_distance = 0.0
+                farthest_vertex = None
+                for vertex in outside_vertices:
+                    distance = self.get_distance(vertex, facet)
+                    if distance > max_distance:
+                        max_distance = distance
+                        farthest_vertex = vertex
+
+
+                # check for all visible facets, initial facet is absolutely visible
+                if max_distance > 0.00001:
+                    fv = HalfEdgeVertex(*farthest_vertex.numpy, "new_vertex")
+                    visible_facets, new_facets = self.get_visible_facets(fv, facet)  # TODO
+                else:
+                    visible_facets, new_facets = {}, []
+                # remove visible facets and corresponding half-edges, vertices
+                # vertex_to_delete = {half_edge.vertex.index: half_edge.vertex for facet in visible_facets.values() for half_edge in facet.half_edge.values()}
+                # for key in [half_edge.vertex.index for facet in new_facets for half_edge in facet.half_edge.values()]:
+                #     if key in vertex_to_delete.keys():
+                #         vertex_to_delete.pop(key)
+                for facet in visible_facets.values():
+                    self.initial_tetrahedron.delete_facet_without_shift(facet)
+                # for vertex in vertex_to_delete.values():
+                #     self.initial_tetrahedron.delete_vertex(vertex)
+                # build new facets
+                for facet in new_facets:
+                    self.initial_tetrahedron.add_facet(facet)
+                # for half_edge in self.initial_tetrahedron.half_edges.values():
+                #     if half_edge.vertex == half_edge.next.vertex or half_edge.vertex == half_edge.next.next.vertex:
+                #         print(half_edge)
+                # update checklist
+                potential_outside_vertices = set(
+                    vertex_ for facet_, outside_vertices_ in self.deque for vertex_ in outside_vertices_ if
+                    facet_ in visible_facets.values())
+                potential_outside_vertices.update(outside_vertices)
+                # remove facets visible in deque
+                self.deque = deque([[facet_, outside_vertices_] for facet_, outside_vertices_ in self.deque if
+                                    facet_ not in visible_facets.values()])
+                # self.deque = deque([self.get_outside_vertices(facet, []) for facet in self.initial_tetrahedron.half_edge_facets.values()][::-1])
+                # add new todos
+                for facet in new_facets:
+                    self.deque.appendleft(self.get_outside_vertices(facet, potential_outside_vertices))
+
+    def get_visible_facets(self, vertex, facet):
+        visible_facets = dict()
+        new_facets = []
+        visible_facets[facet.index] = facet  # current facet is always visible
+        facet_to_check = dict(facet.half_edge)  # 3 adjacent facets need to check
+        while facet_to_check:  # check list is not empty
+            _, half_edge = facet_to_check.popitem()  # pop one facet to check
+            facet = half_edge.pair.facet
+            if facet.index not in visible_facets.keys():  # this facet is not checked yet
+                if self.get_distance(vertex, facet) > 0.0:  # this facet is visible
+                    visible_facets[facet.index] = facet
+                    facet_to_check.update(facet.half_edge)  # add adjacent facets to check list, ignore the checked ones
+                else:  # this facet is not visible
+                    edge = half_edge  # we need this edge to build a new facet
+                    new_facet = HalfEdgeFacet(None)
+                    new_half_edge1 = HalfEdge(edge.vertex, None, new_facet, None, None)
+                    new_half_edge2 = HalfEdge(edge.next.vertex, None, new_facet, None, None)
+                    new_half_edge3 = HalfEdge(vertex, None, new_facet, None, None)
+                    new_half_edge1.next = new_half_edge2
+                    new_half_edge2.next = new_half_edge3
+                    new_half_edge3.next = new_half_edge1
+                    new_facet.half_edge["new_half_edge1"] = new_half_edge1
+                    new_facet.half_edge["new_half_edge2"] = new_half_edge2
+                    new_facet.half_edge["new_half_edge3"] = new_half_edge3
+                    new_facets.append(new_facet)  # new facet
             else:
-                remained_particle_cloud.append(particle)
-        self.check_list.append(Block(facet, np.array(particle_cloud)))
+                pass
+        return visible_facets, new_facets
 
-        facet = Facet(self.p1, self.p3, self.p2)
-        particle_cloud = []
-        remained_remained_particle_cloud = []
-        for particle in remained_particle_cloud:
-            if np.dot(particle - facet.center, facet.normal) > 0:
-                particle_cloud.append(particle)
+    def get_outside_vertices(self, facet, outside_vertices):
+        check_list = []
+        if outside_vertices:  # search in these vertices
+            for vertex in outside_vertices:
+                if self.get_distance(vertex, facet) > 0.0:
+                    check_list.append(vertex)
+        else:  # search in all vertices
+            for vertex in self.point_cloud.half_edge_vertices.values():
+                if self.get_distance(vertex, facet) > 0.0:
+                    check_list.append(vertex)
+        return [facet, check_list]
+
+    @staticmethod
+    def get_distance(vertex, other):
+        if type(other) is HalfEdgeVertex:
+            return np.linalg.norm(vertex.numpy - other.numpy)
+        elif type(other) is HalfEdge:
+            vertex1 = vertex.numpy
+            vertex2 = other.vertex.numpy
+            vertex3 = other.pair.vertex.numpy
+            area = np.linalg.norm(np.cross(vertex1 - vertex2, vertex1 - vertex3))
+            if area == 0.0:
+                return 0.0
             else:
-                remained_remained_particle_cloud.append(particle)
-        self.check_list.append(Block(facet, np.array(particle_cloud)))
-
-        facet = Facet(self.p1, self.p2, self.p3)
-        particle_cloud = []
-        remained_remained_remained_particle_cloud = []
-        for particle in remained_remained_particle_cloud:
-            if np.dot(particle - facet.center, facet.normal) > 0:
-                particle_cloud.append(particle)
-            else:
-                remained_remained_remained_particle_cloud.append(particle)
-        self.check_list.append(Block(facet, np.array(particle_cloud)))
-
-        facet = Facet(self.p2, self.p5, self.p3)
-        particle_cloud = []
-        for particle in remained_remained_remained_particle_cloud:
-            if np.dot(particle - facet.center, facet.normal) > 0:
-                particle_cloud.append(particle)
-        self.check_list.append(Block(facet, np.array(particle_cloud)))
-        self.ans = []
-
-    def recursive_quick_hull(self):
-        if not self.check_list:
-            return
-        print([])
-        block = self.check_list.pop()
-        if block.point_cloud.shape[0] == 0:
-            self.ans.append(block)
-            return self.recursive_quick_hull()
-        self.check_list = block.build_new_block([block, *self.check_list])
-        return self.recursive_quick_hull()
+                return area / np.linalg.norm(vertex2 - vertex3)
+        elif type(other) is HalfEdgeFacet:
+            normal = other.cal_normal()
+            vertex_on_facet = next(iter(other.half_edge.values())).vertex.numpy
+            return np.dot(vertex.numpy - vertex_on_facet, normal)
 
 
 if __name__ == "__main__":
-    data = np.load("convexhulltest.npy")
-    ch = QuickConvexHull(data)
-    ch.recursive_quick_hull()
+    vert, fac = HalfEdgeMesh.load_obj(
+        r"D:\ProgramFiles\PycharmProject\SPH-prototype\utils\aa.obj")
+    ch = QuickConvexHull(vert)
+    v, f = ch.initial_tetrahedron.export()
+    with open(r"convexhull_test3.obj", "w") as f_:
+        f_.write("o text.obj\n")
+        for vertex_ in v:
+            f_.write(f"v {vertex_[0]} {vertex_[1]} {vertex_[2]}\n")
+        for facet_ in f:
+            f_.write(f"f {facet_[0]} {facet_[1]} {facet_[2]}\n")
+        f_.close()
