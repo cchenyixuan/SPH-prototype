@@ -11,8 +11,8 @@ class HalfEdge:
         self.next = next_half_edge
         self.index = index
 
-    def __hash__(self):
-        return hash(self.index)
+    # def __hash__(self):
+    #     return hash(self.index)
 
 
 class HalfEdgeVertex:
@@ -46,8 +46,8 @@ class HalfEdgeFacet:
         self.index = index
         self.normal = None
 
-    def __hash__(self):
-        return hash(self.index)
+    # def __hash__(self):
+    #     return hash(self.index)
 
     def nearby(self, adjoins="edge"):
         if adjoins == "edge":

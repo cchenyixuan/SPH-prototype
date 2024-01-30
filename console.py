@@ -5,7 +5,7 @@ import pyrr
 import numpy as np
 from OpenGL.GL import *
 import glfw
-import WSSD_demo as Demo
+import HE.HE_demo as Demo
 from camera import Camera
 from PIL import Image
 from Coordinates import Coord
@@ -14,52 +14,6 @@ from utils.terminal import Console
 
 console = False
 console_buffer = """>>>"""
-
-
-class PoissonFFT:
-    def __init__(self):
-        ...
-
-    @staticmethod
-    def fast_sine_transform(matrix):
-        n, m = matrix.shape
-        tmp = np.zeros((2 * n + 2, m), dtype=np.float32)
-        tmp[1:n + 1, :] = matrix
-        tmp = np.fft.fft2(tmp)
-        return tmp[1:n + 1, :].imag
-
-    def poisson_solver_fft(self, b):
-        n, m = b.shape
-
-        # Form eigenvalues of matrix T(nxn)
-        L = 2 * (1 - np.cos(np.arange(1, n + 1) * np.pi / (n + 1)))
-
-        # Form reciprocal sums of eigenvalues
-        # Include scale factor 2/(n+1)
-        LL = (2 / (n + 1)) * np.ones((n, n)) / (np.outer(L, np.ones(n)) + np.outer(np.ones(n), L))
-
-        # Solve, using the Fast Sine Transform
-        X = self.fast_sine_transform(b.T)
-        X = self.fast_sine_transform(X.T)
-        X = LL * X
-        X = self.fast_sine_transform(X.T)
-        X = self.fast_sine_transform(X.T)
-
-        return X
-
-
-class PoissonSolver:
-    def __init__(self, f: np.ndarray):
-        self.m = f.shape[0]
-        self.h = 1 / (1 + self.m)
-        self.f = f
-        self.s = np.sin(np.array([[i * j * np.pi * self.h for j in range(1, self.m + 1)] for i in range(1, self.m + 1)],
-                                 dtype=np.float32))
-        self.sigma = np.array([np.sin(i * np.pi * self.h / 2) ** 2 for i in range(1, self.m + 1)], dtype=np.float32)
-        self.g = self.s @ self.f @ self.s
-        self.x = np.array([[self.h ** 4 * self.g[i - 1, j - 1] / (self.sigma[i - 1] + self.sigma[j - 1]) for j in
-                            range(1, self.m + 1)] for i in range(1, self.m + 1)], dtype=np.float32)
-        self.v = self.s @ self.x @ self.s
 
 
 class DisplayPort:
@@ -103,9 +57,9 @@ class DisplayPort:
         glUseProgram(self.demo.render_shader)
         glUniformMatrix4fv(self.demo.projection_loc, 1, GL_FALSE, self.camera.projection)
         glUniformMatrix4fv(self.demo.view_loc, 1, GL_FALSE, self.camera.view)
-        glUseProgram(self.demo.render_shader_boundary)
-        glUniformMatrix4fv(self.demo.boundary_projection_loc, 1, GL_FALSE, self.camera.projection)
-        glUniformMatrix4fv(self.demo.boundary_view_loc, 1, GL_FALSE, self.camera.view)
+        # glUseProgram(self.demo.render_shader_boundary)
+        # glUniformMatrix4fv(self.demo.boundary_projection_loc, 1, GL_FALSE, self.camera.projection)
+        # glUniformMatrix4fv(self.demo.boundary_view_loc, 1, GL_FALSE, self.camera.view)
         glUseProgram(self.demo.render_shader_vector)
         glUniformMatrix4fv(self.demo.vector_projection_loc, 1, GL_FALSE, self.camera.projection)
         glUniformMatrix4fv(self.demo.vector_view_loc, 1, GL_FALSE, self.camera.view)
@@ -136,7 +90,7 @@ class DisplayPort:
                 glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
 
             # render codes
-            self.demo(self.current_step % self.demo.io.number, pause=self.pause, show_vector=self.show_vector, show_boundary=self.show_boundary,
+            self.demo(self.current_step, pause=self.pause, show_vector=self.show_vector, show_boundary=self.show_boundary,
                       show_voxel=self.show_voxel)
             # export boundary_data
             # if self.current_step % self.demo.save_frequency == 0 and self.current_step != 0:
@@ -149,7 +103,7 @@ class DisplayPort:
                 glProgramUniformMatrix4fv(self.demo.render_shader_voxel, self.demo.voxel_view_loc, 1, GL_FALSE,
                                           self.view)
                 glProgramUniformMatrix4fv(self.demo.render_shader, self.demo.view_loc, 1, GL_FALSE, self.view)
-                glProgramUniformMatrix4fv(self.demo.render_shader_boundary, self.demo.boundary_view_loc, 1, GL_FALSE, self.view)
+                # glProgramUniformMatrix4fv(self.demo.render_shader_boundary, self.demo.boundary_view_loc, 1, GL_FALSE, self.view)
                 glProgramUniformMatrix4fv(self.demo.render_shader_vector, self.demo.vector_view_loc, 1, GL_FALSE,
                                           self.view)
                 self.view_changed = False
@@ -163,7 +117,7 @@ class DisplayPort:
                 # self.save_particle_data(i)
                 i += 1
 
-            glClearColor(0.0, 0.0, 0.0, 1.0)
+            glClearColor(1.0, 1.0, 1.0, 1.0)
             glfw.swap_buffers(self.window)
             # self.pause = True
         glfw.terminate()
@@ -263,12 +217,12 @@ class DisplayPort:
                     glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.demo.sbo_particles)
                     a0 = np.frombuffer(glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 5000000 * 64),
                                        dtype=np.float32)
-                    self.a = np.reshape(a0, (-1, 4))
+                    self.a = np.reshape(a0, (-1, 4, 4))
                     glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.demo.sbo_particles_sub_data)
                     a1 = np.frombuffer(glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 5000000 * 64),
                                        dtype=np.float32)
-                    self.b = np.reshape(a1, (-1, 4))
-                    print(self.a[:80])
+                    self.b = np.reshape(a1, (-1, 4, 4))
+                    print(self.a[179400])
                     # print(f"Total Particle: {sum([True if item[0, 3] else False for item in self.a.reshape((-1, 4, 4))])}")
                     # print(f"Largest Index: {np.max([step for step, item in enumerate(self.a.reshape((-1, 4, 4))) if item[0, 3] != 0])}")
                     # maxi = 0.0

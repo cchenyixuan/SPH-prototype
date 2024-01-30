@@ -60,15 +60,32 @@ class Grid2D:
     def calculate_v(self):
         ...
 
-    def __call__(self, function):
+    def calculate_heat(self):
+        for i in range(self.buffer.shape[0]):
+            if abs(self.buffer[i][0, 0]) < 1 and abs(self.buffer[i][0, 2]) < 0.5:
+                self.buffer[i][1, 0] += 1.0
+            if abs(self.buffer[i][0, 0]) < 0.5 and abs(self.buffer[i][0, 2]) < 1.0:
+                self.buffer[i][1, 0] += 1.0
 
+    @staticmethod
+    def wendland_2d(rij, h):
+        if rij > h:
+            return 0.0
+        coefficient = 9 / np.pi / h ** 2
+        return coefficient * (1 - rij / h) ** 6 * (35 / 3 * rij / h * rij / h + 6 * rij / h + 1)
+
+    def heat(self):
+        for i in range(self.buffer.shape[0]):
+            self.buffer[i][1, 0] += self.wendland_2d(np.linalg.norm(self.buffer[i][0, :3]), 1.0)*0.5
+
+    def __call__(self, function):
         ...
 
 
 if __name__ == "__main__":
-    test_grid = Grid2D(0.05, 0.005, 10, 10)
+    test_grid = Grid2D(0.05, 0.0025, 3, 3)
     # test_grid.calculate_u()
-    test_grid.calculate_n()
+    test_grid.heat()
     print(np.max(test_grid.buffer))
-    np.save("../p_buffer10_additional.npy", test_grid.buffer)
+    # np.save("../p_buffer6x6_for_acc.npy", test_grid.buffer)
 

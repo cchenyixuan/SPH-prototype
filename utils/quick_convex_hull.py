@@ -7,8 +7,12 @@ class QuickConvexHull:
     def __init__(self, point_cloud):
         self.point_cloud = HalfEdgeMesh(point_cloud, [])
         self.initial_tetrahedron = self.make_tetrahedron()
-        self.deque = deque(
-            [self.get_outside_vertices(facet, []) for facet in self.initial_tetrahedron.half_edge_facets.values()])
+        self.deque = deque()
+        potential_outside_vertices = set(self.point_cloud.half_edge_vertices.values())
+        for facet in self.initial_tetrahedron.half_edge_facets.values():
+            facet, outside_vertices, _ = self.get_outside_vertices(facet, potential_outside_vertices)
+            self.deque.append([facet, outside_vertices])
+            potential_outside_vertices.difference_update(outside_vertices)
         self.iteration()
 
     def make_tetrahedron(self):
@@ -80,8 +84,10 @@ class QuickConvexHull:
             facets = [[0, 1, 2], [0, 2, 3], [0, 3, 1], [1, 3, 2]]
         return HalfEdgeMesh(vertices, facets)
 
-    def iteration(self):
+    def iteration(self, iterations=0):
+        count = 0
         while self.deque:
+            count += 1
             print(len(self.deque))
             facet, outside_vertices = self.deque.pop()  # HalfEdgeFacet, [HalfEdgeVertex]
             if len(outside_vertices) > 0:  # need to upgrade
@@ -94,9 +100,8 @@ class QuickConvexHull:
                         max_distance = distance
                         farthest_vertex = vertex
 
-
                 # check for all visible facets, initial facet is absolutely visible
-                if max_distance > 0.00001:
+                if max_distance > 0.0:
                     fv = HalfEdgeVertex(*farthest_vertex.numpy, "new_vertex")
                     visible_facets, new_facets = self.get_visible_facets(fv, facet)  # TODO
                 else:
@@ -107,7 +112,7 @@ class QuickConvexHull:
                 #     if key in vertex_to_delete.keys():
                 #         vertex_to_delete.pop(key)
                 for facet in visible_facets.values():
-                    self.initial_tetrahedron.delete_facet_without_shift(facet)
+                    self.initial_tetrahedron.delete_facet_and_cleanup_vertex(facet)
                 # for vertex in vertex_to_delete.values():
                 #     self.initial_tetrahedron.delete_vertex(vertex)
                 # build new facets
@@ -127,9 +132,16 @@ class QuickConvexHull:
                 # self.deque = deque([self.get_outside_vertices(facet, []) for facet in self.initial_tetrahedron.half_edge_facets.values()][::-1])
                 # add new todos
                 for facet in new_facets:
-                    self.deque.appendleft(self.get_outside_vertices(facet, potential_outside_vertices))
+                    facet, outside_vertices, zero_distant_vertices = self.get_outside_vertices(facet, potential_outside_vertices)
+                    if outside_vertices:
+                        self.deque.appendleft([facet, outside_vertices])
+                    potential_outside_vertices.difference_update(outside_vertices)
+                    # potential_outside_vertices.difference_update(zero_distant_vertices)
+                    # print(len(potential_outside_vertices), len(zero_distant_vertices))
+            if count == iterations:
+                break
 
-    def get_visible_facets(self, vertex, facet):
+    def get_visible_facets(self, vertex: HalfEdgeVertex, facet: HalfEdgeFacet):
         visible_facets = dict()
         new_facets = []
         visible_facets[facet.index] = facet  # current facet is always visible
@@ -141,6 +153,8 @@ class QuickConvexHull:
                 if self.get_distance(vertex, facet) > 0.0:  # this facet is visible
                     visible_facets[facet.index] = facet
                     facet_to_check.update(facet.half_edge)  # add adjacent facets to check list, ignore the checked ones
+                # elif self.get_distance(vertex, facet) == 0.0:
+                #     print(vertex, facet)
                 else:  # this facet is not visible
                     edge = half_edge  # we need this edge to build a new facet
                     new_facet = HalfEdgeFacet(None)
@@ -159,16 +173,20 @@ class QuickConvexHull:
         return visible_facets, new_facets
 
     def get_outside_vertices(self, facet, outside_vertices):
-        check_list = []
+        check_list = set()
+        zero_distant_vertices = set()
         if outside_vertices:  # search in these vertices
             for vertex in outside_vertices:
-                if self.get_distance(vertex, facet) > 0.0:
-                    check_list.append(vertex)
+                distance = self.get_distance(vertex, facet)
+                if distance > 0.0:
+                    check_list.add(vertex)
+                elif distance == 0.0:
+                    zero_distant_vertices.add(vertex)
         else:  # search in all vertices
             for vertex in self.point_cloud.half_edge_vertices.values():
                 if self.get_distance(vertex, facet) > 0.0:
-                    check_list.append(vertex)
-        return [facet, check_list]
+                    check_list.add(vertex)
+        return [facet, check_list, zero_distant_vertices]
 
     @staticmethod
     def get_distance(vertex, other):
@@ -186,15 +204,19 @@ class QuickConvexHull:
         elif type(other) is HalfEdgeFacet:
             normal = other.cal_normal()
             vertex_on_facet = next(iter(other.half_edge.values())).vertex.numpy
-            return np.dot(vertex.numpy - vertex_on_facet, normal)
+            distance = np.dot(vertex.numpy - vertex_on_facet, normal)
+            if 0.0 <= distance <= 0.0001:
+                return 0.0
+            else:
+                return distance
 
 
 if __name__ == "__main__":
     vert, fac = HalfEdgeMesh.load_obj(
-        r"D:\ProgramFiles\PycharmProject\SPH-prototype\utils\aa.obj")
+        r"D:\downloads\石田\acom180429_RUPTURED.obj")
     ch = QuickConvexHull(vert)
     v, f = ch.initial_tetrahedron.export()
-    with open(r"convexhull_test3.obj", "w") as f_:
+    with open(r"D:\downloads\石田\acom180429_RUPTURED_2_convexhull.obj", "w") as f_:
         f_.write("o text.obj\n")
         for vertex_ in v:
             f_.write(f"v {vertex_[0]} {vertex_[1]} {vertex_[2]}\n")

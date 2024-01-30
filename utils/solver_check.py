@@ -140,12 +140,12 @@ class SolverCheck2D:
 
         # create a pcd around origin with x,y,z = +-h
         # regular distribution
-        self.buffer = self.star_distribution()
+        self.buffer = self.regular_distribution()
         # self.buffer = self.irregular_distribution()
-        self.particle_volume = np.pi * self.R ** 2
+        self.particle_volume = (self.R*2)**2
         self.kernel_sum("wendland_2d")
-        self.tv = 4 / 3 * np.pi * self.R ** 3
-        self.particle_volume = 1 / self.kernel_sum("wendland_2d")
+        self.tv = (self.R*2)**2
+        #self.particle_volume = 1 / self.kernel_sum("wendland_2d")
         print(self.particle_volume-self.tv)
         self.kernel_sum("poly6_2d")
         self.kernel_sum("spiky_2d")
@@ -155,7 +155,7 @@ class SolverCheck2D:
         self.laplacian("grad_wendland_2d")
         self.laplacian("grad_spiky_2d")
         # self.buffer = self.irregular_distribution()
-        self.particle_volume = 1 / self.kernel_sum("wendland_2d")
+        # self.particle_volume = 1 / self.kernel_sum("wendland_2d")
         self.kernel_sum("spiky_2d")
         self.kernel_sum("poly6_2d")
         self.kernel_sum("wendland_2d")
@@ -168,19 +168,20 @@ class SolverCheck2D:
     def __call__(self, *args, **kwargs):
         return self.particle_volume
 
-    def kernel_sum(self, kernel="poly6_2d"):
+    def kernel_sum(self, kernel_name="poly6_2d"):
         kernels = {"poly6_2d": self.poly6_2d,
                    "spiky_2d": self.spiky_2d,
-                   "wendland_2d": self.spiky_2d, }
-        kernel = kernels[kernel]
+                   "wendland_2d": self.wendland_2d,
+                   }
+        kernel = kernels[kernel_name]
         ans, count = 0.0, 0.0
         for particle in self.buffer:
             rij = np.linalg.norm(particle[:2])
-            if rij != 0.0:
-                kernel_tmp = kernel(np.linalg.norm(particle), self.H)
-                ans += kernel_tmp
-                count += bool(kernel_tmp)
-        print(f"Kernel Sum: {ans}, Particle Count: {count}, Kernel Integral: {ans * self.particle_volume}")
+            # if rij != 0.0:
+            kernel_tmp = kernel(np.linalg.norm(particle), self.H)
+            ans += kernel_tmp
+            count += bool(kernel_tmp)
+        print(f"Kernel: {kernel_name}, Kernel Sum: {ans}, Particle Count: {count}, Kernel Integral: {ans * self.particle_volume}")
         return ans
 
     def grad_kernel_sum(self, kernel_name="grad_wendland_2d"):
@@ -257,6 +258,8 @@ class SolverCheck2D:
 
     @staticmethod
     def wendland_2d(rij, h):
+        if rij > h:
+            return 0.0
         coefficient = 9 / np.pi / h ** 2
         return coefficient * (1 - rij / h) ** 6 * (35 / 3 * rij / h * rij / h + 6 * rij / h + 1)
 
@@ -323,8 +326,8 @@ class SolverCheck2D:
 
 
 if __name__ == "__main__":
-    h = 0.002
-    r = 0.00005
+    h = 0.05
+    r = 0.0025
     sc = SolverCheck2D(h, r)
     particle_volume = sc()
     print(particle_volume)
@@ -335,4 +338,6 @@ if __name__ == "__main__":
     ax.scatter(sc.buffer[:, 0], sc.buffer[:, 1], [sum(sc.grad_wendland_2d(p[0], p[1], np.linalg.norm(p[:2]), h)) for p in sc.buffer])
     # plt.xlim([-0.2 * h, 0.2 * h])
     # plt.ylim([-0.2 * h, 0.2 * h])
+    plt.show()
+    plt.scatter(sc.buffer[:, 0], sc.buffer[:, 1])
     plt.show()
