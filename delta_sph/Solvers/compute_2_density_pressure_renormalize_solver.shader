@@ -390,6 +390,7 @@ void ComputeParticleDensityRenormalize(){
     renormalize = inverse(renormalize);
     density_gradient = renormalize * density_gradient;
     Particle[particle_index-1][2].xyz = density_gradient;
+    Particle[particle_index-1][3].w = eos_constant*(Particle[particle_index-1][2].w-rest_dense);
 }
 
 void main() {
