@@ -9,16 +9,16 @@ shader_src_list = [
     "RenderShaders/boundary_vertex.shader",
     "RenderShaders/fragment.shader",
     "RenderShaders/vertex.shader",
-    "Solvers/compute_0_init_boundary_particles.shader",
-    "Solvers/compute_1_init_domain_particles.shader",
-    "Solvers/compute_1_init_inlet_particles.shader",
-    "Solvers/compute_2_boundary_density_pressure_solver.shader",
-    "Solvers/compute_2_density_pressure_solver.shader",
-    "Solvers/compute_2_density_derivative_solver.shader",
-    "Solvers/compute_3_force_solver.shader",
-    "Solvers/compute_4_integrate_solver.shader",
-    "Solvers/compute_5_voxel_upgrade_solver.shader",
-    "Solvers/compute_6_combine_solver.shader",
+    # "Solvers/compute_0_init_boundary_particles.shader",
+    # "Solvers/compute_1_init_domain_particles.shader",
+    # "Solvers/compute_1_init_inlet_particles.shader",
+    # "Solvers/compute_2_boundary_density_pressure_solver.shader",
+    # "Solvers/compute_2_density_pressure_solver.shader",
+    # "Solvers/compute_2_density_derivative_solver.shader",
+    # "Solvers/compute_3_force_solver.shader",
+    # "Solvers/compute_4_integrate_solver.shader",
+    # "Solvers/compute_5_voxel_upgrade_solver.shader",
+    # "Solvers/compute_6_combine_solver.shader",
     "VectorShaders/vector_vertex.shader",
     "VectorShaders/vector_geometry.shader",
     "VectorShaders/vector_fragment.shader",
@@ -27,9 +27,21 @@ shader_src_list = [
     "VoxelShaders/voxel_geometry.shader",
     "VoxelShaders/voxel_fragment.shader",
     "VoxelShaders/voxel_compute.shader",
-    "Solvers_WSSD/wssd_compute_1_init_domain_particles.shader",
-    "Solvers_WSSD/wssd_compute_2_density_pressure_solver.shader",
-    "Solvers_WSSD/wssd_compute_3_force_solver.shader",
+    # "Solvers_WSSD/wssd_compute_1_init_domain_particles.shader",
+    # "Solvers_WSSD/wssd_compute_2_density_pressure_solver.shader",
+    # "Solvers_WSSD/wssd_compute_3_force_solver.shader",
+    # delta-sph
+    "delta_sph/Solvers/compute_0_init_boundary_particles.shader",
+    "delta_sph/Solvers/compute_1_init_domain_particles.shader",
+    "delta_sph/Solvers/compute_1_init_inlet_particles.shader",
+    "delta_sph/Solvers/compute_2_boundary_density_pressure_solver.shader",
+    "delta_sph/Solvers/compute_2_density_pressure_renormalize_solver.shader",
+    "delta_sph/Solvers/compute_2_density_shift_solver.shader",
+    "delta_sph/Solvers/compute_3_force_solver.shader",
+    "delta_sph/Solvers/compute_4_integrate_solver.shader",
+    "delta_sph/Solvers/compute_5_voxel_upgrade_solver.shader",
+
+
 ]
 shader_export_list = [
     export_dir+"/"+shader.split("/")[-1] for shader in shader_src_list
@@ -63,6 +75,7 @@ const_variables = {
     "Coeff_Wendland_3d": lambda value: f"const float Coeff_Wendland_3d = {float(value)};\n",
     "MAX_PARTICLE_MASS": lambda value: f"const float MAX_PARTICLE_MASS = {float(value)};\n",
     "ORIGINAL_PARTICLE_MASS": lambda value: f"const float ORIGINAL_PARTICLE_MASS = {float(value)};\n",
+    "c0": lambda value: f"const float c0 = {float(value)};\n",
 }
 
 

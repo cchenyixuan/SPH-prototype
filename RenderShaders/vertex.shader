@@ -163,7 +163,7 @@ void main() {
                 v_color = vec4(abs(ParticleSubData[v_index][1].xyz)/ParticleSubData[v_index][3].z, 1.0);
                 break;
             case 8:  // wssd
-                v_color = vec4(Particle[v_index][2].w, -Particle[v_index][2].w, 0.0, 1.0);
+                v_color = vec4(ParticleSubData[v_index][3].x, -ParticleSubData[v_index][3].x, 0.0, 1.0);
                 break;
         }
     }

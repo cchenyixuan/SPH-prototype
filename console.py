@@ -5,7 +5,7 @@ import pyrr
 import numpy as np
 from OpenGL.GL import *
 import glfw
-import HE.HE_demo as Demo
+import delta_sph.Demo as Demo
 from camera import Camera
 from PIL import Image
 from Coordinates import Coord
@@ -57,9 +57,9 @@ class DisplayPort:
         glUseProgram(self.demo.render_shader)
         glUniformMatrix4fv(self.demo.projection_loc, 1, GL_FALSE, self.camera.projection)
         glUniformMatrix4fv(self.demo.view_loc, 1, GL_FALSE, self.camera.view)
-        # glUseProgram(self.demo.render_shader_boundary)
-        # glUniformMatrix4fv(self.demo.boundary_projection_loc, 1, GL_FALSE, self.camera.projection)
-        # glUniformMatrix4fv(self.demo.boundary_view_loc, 1, GL_FALSE, self.camera.view)
+        glUseProgram(self.demo.render_shader_boundary)
+        glUniformMatrix4fv(self.demo.boundary_projection_loc, 1, GL_FALSE, self.camera.projection)
+        glUniformMatrix4fv(self.demo.boundary_view_loc, 1, GL_FALSE, self.camera.view)
         glUseProgram(self.demo.render_shader_vector)
         glUniformMatrix4fv(self.demo.vector_projection_loc, 1, GL_FALSE, self.camera.projection)
         glUniformMatrix4fv(self.demo.vector_view_loc, 1, GL_FALSE, self.camera.view)
@@ -103,7 +103,7 @@ class DisplayPort:
                 glProgramUniformMatrix4fv(self.demo.render_shader_voxel, self.demo.voxel_view_loc, 1, GL_FALSE,
                                           self.view)
                 glProgramUniformMatrix4fv(self.demo.render_shader, self.demo.view_loc, 1, GL_FALSE, self.view)
-                # glProgramUniformMatrix4fv(self.demo.render_shader_boundary, self.demo.boundary_view_loc, 1, GL_FALSE, self.view)
+                glProgramUniformMatrix4fv(self.demo.render_shader_boundary, self.demo.boundary_view_loc, 1, GL_FALSE, self.view)
                 glProgramUniformMatrix4fv(self.demo.render_shader_vector, self.demo.vector_view_loc, 1, GL_FALSE,
                                           self.view)
                 self.view_changed = False
@@ -117,7 +117,7 @@ class DisplayPort:
                 # self.save_particle_data(i)
                 i += 1
 
-            glClearColor(1.0, 1.0, 1.0, 1.0)
+            glClearColor(0.0, 0.0, 0.0, 1.0)
             glfw.swap_buffers(self.window)
             # self.pause = True
         glfw.terminate()
@@ -222,7 +222,7 @@ class DisplayPort:
                     a1 = np.frombuffer(glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 5000000 * 64),
                                        dtype=np.float32)
                     self.b = np.reshape(a1, (-1, 4, 4))
-                    print(self.a[179400])
+                    print(np.hstack((self.a[:4], self.b[:4])))
                     # print(f"Total Particle: {sum([True if item[0, 3] else False for item in self.a.reshape((-1, 4, 4))])}")
                     # print(f"Largest Index: {np.max([step for step, item in enumerate(self.a.reshape((-1, 4, 4))) if item[0, 3] != 0])}")
                     # maxi = 0.0

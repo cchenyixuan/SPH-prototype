@@ -145,7 +145,7 @@ class SolverCheck2D:
         self.particle_volume = (self.R*2)**2
         self.kernel_sum("wendland_2d")
         self.tv = (self.R*2)**2
-        #self.particle_volume = 1 / self.kernel_sum("wendland_2d")
+        self.particle_volume = 1 / self.kernel_sum("wendland_2d")
         print(self.particle_volume-self.tv)
         self.kernel_sum("poly6_2d")
         self.kernel_sum("spiky_2d")
@@ -177,10 +177,10 @@ class SolverCheck2D:
         ans, count = 0.0, 0.0
         for particle in self.buffer:
             rij = np.linalg.norm(particle[:2])
-            # if rij != 0.0:
-            kernel_tmp = kernel(np.linalg.norm(particle), self.H)
-            ans += kernel_tmp
-            count += bool(kernel_tmp)
+            if rij != 0.0:
+                kernel_tmp = kernel(np.linalg.norm(particle), self.H)
+                ans += kernel_tmp
+                count += bool(kernel_tmp)
         print(f"Kernel: {kernel_name}, Kernel Sum: {ans}, Particle Count: {count}, Kernel Integral: {ans * self.particle_volume}")
         return ans
 

@@ -316,7 +316,8 @@ int set_voxel_data_atomic(int voxel_id, int pointer, int value){
 void ComputeParticleDensity(){
     // DEBUG FOR KERNEL VALUE
     vec3 kernel_tmp = vec3(0.0);
-    vec3 psi = vec3(0.0);
+    float psi = 0.0;
+    vec3 kernel_debug = vec3(0.0);
     float delta_rho = 0.0;
     // position of current particle focused
     vec3 particle_pos = Particle[particle_index-1][0].xyz;
@@ -334,11 +335,14 @@ void ComputeParticleDensity(){
         else if (index_j>0){
             // distance rij
             float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
+            if(rij==0.0){continue;}
             vec3 xij = particle_pos - Particle[index_j-1][0].xyz;
             // distance less than h
             if (rij<h){
-                kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h2);
-                psi += (2*(Particle[particle_index-1][2].w-Particle[index_j-1][2].w)*xij/rij/rij - (Particle[particle_index-1][2].xyz + Particle[index_j-1][2].xyz))*kernel_tmp;
+                kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
+                psi += dot(2*(Particle[particle_index-1][2].w-Particle[index_j-1][2].w)*xij/rij/rij - (Particle[particle_index-1][2].xyz + Particle[index_j-1][2].xyz), kernel_tmp)*Particle[index_j-1][1].w/Particle[index_j-1][2].w;
+                kernel_debug += kernel_tmp;
+                //psi += 2*(Particle[particle_index-1][2].w-Particle[index_j-1][2].w)/rij/rij*xij*kernel_tmp;
                 delta_rho += Particle[particle_index-1][2].w*dot((Particle[particle_index-1][1].xyz-Particle[index_j-1][1].xyz), kernel_tmp)*Particle[index_j-1][1].w/Particle[index_j-1][2].w;
             }
         }
@@ -348,11 +352,14 @@ void ComputeParticleDensity(){
             index_j = -index_j;
             // distance rij
             float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
+            if(rij==0.0){continue;}
             vec3 xij = particle_pos - BoundaryParticle[index_j-1][0].xyz;
             // distance less than h
             if (rij<h){
-                kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h2);
-                psi += (2*(Particle[particle_index-1][2].w-BoundaryParticle[index_j-1][2].w)*xij/rij/rij - (Particle[particle_index-1][2].xyz + BoundaryParticle[index_j-1][2].xyz))*kernel_tmp;
+                kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
+                psi += dot(2*(Particle[particle_index-1][2].w-BoundaryParticle[index_j-1][2].w)*xij/rij/rij - (Particle[particle_index-1][2].xyz + BoundaryParticle[index_j-1][2].xyz), kernel_tmp)*BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w;
+                kernel_debug += kernel_tmp;
+                //psi += 2*(Particle[particle_index-1][2].w-BoundaryParticle[index_j-1][2].w)/rij/rij*xij*kernel_tmp;
                 delta_rho += Particle[particle_index-1][2].w*dot((Particle[particle_index-1][1].xyz-BoundaryParticle[index_j-1][1].xyz), kernel_tmp)*BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w;
             }
         }
@@ -374,11 +381,14 @@ void ComputeParticleDensity(){
                 else if (index_j>0){
                     // distance rij
                     float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
+                    if(rij==0.0){continue;}
                     vec3 xij = particle_pos - Particle[index_j-1][0].xyz;
                     // distance less than h
                     if (rij<h){
-                        kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h2);
-                        psi += (2*(Particle[particle_index-1][2].w-Particle[index_j-1][2].w)*xij/rij/rij - (Particle[particle_index-1][2].xyz + Particle[index_j-1][2].xyz))*kernel_tmp;
+                        kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
+                        psi += dot(2*(Particle[particle_index-1][2].w-Particle[index_j-1][2].w)*xij/rij/rij - (Particle[particle_index-1][2].xyz + Particle[index_j-1][2].xyz), kernel_tmp)*Particle[index_j-1][1].w/Particle[index_j-1][2].w;
+                        kernel_debug += kernel_tmp;
+                        //psi += 2*(Particle[particle_index-1][2].w-Particle[index_j-1][2].w)/rij/rij*xij*kernel_tmp;
                         delta_rho += Particle[particle_index-1][2].w*dot((Particle[particle_index-1][1].xyz-Particle[index_j-1][1].xyz), kernel_tmp)*Particle[index_j-1][1].w/Particle[index_j-1][2].w;
                     }
                 }
@@ -387,13 +397,15 @@ void ComputeParticleDensity(){
                     index_j = -index_j;
                     // distance rij
                     float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
+                    if(rij==0.0){continue;}
                     vec3 xij = particle_pos - BoundaryParticle[index_j-1][0].xyz;
                     // distance less than h
                     if (rij<h){
-                        kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h2);
-                        psi += (2*(Particle[particle_index-1][2].w-BoundaryParticle[index_j-1][2].w)*xij/rij/rij - (Particle[particle_index-1][2].xyz + BoundaryParticle[index_j-1][2].xyz))*kernel_tmp;
+                        kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
+                        psi += dot(2*(Particle[particle_index-1][2].w-BoundaryParticle[index_j-1][2].w)*xij/rij/rij - (Particle[particle_index-1][2].xyz + BoundaryParticle[index_j-1][2].xyz), kernel_tmp)*BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w;
+                        kernel_debug += kernel_tmp;
                         delta_rho += Particle[particle_index-1][2].w*dot((Particle[particle_index-1][1].xyz-BoundaryParticle[index_j-1][1].xyz), kernel_tmp)*BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w;
-            }
+                    }
                 }
 
             }
@@ -403,6 +415,7 @@ void ComputeParticleDensity(){
 
     delta_rho += 0.1*h*c0*psi;
     ParticleSubData[particle_index-1][3].x = delta_rho;
+    // ParticleSubData[particle_index-1][1].xyz = kernel_debug;
 }
 
 void main() {

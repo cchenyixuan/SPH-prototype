@@ -23,7 +23,7 @@ class Project:
         find_vertex = re.compile(r"v (\+?-?[\d.]+) (\+?-?[\d.]+) (\+?-?[\d.]+)\n", re.S)
         data = []
         try:
-            with open(file, "r") as f:
+            with open(file, "r", encoding="utf-8") as f:
                 for row in f:
                     ans = re.findall(find_vertex, row)
                     if ans:
@@ -55,6 +55,8 @@ class Project:
             output[step*4+1][3] = self.particle_mass
             output[step*4+2][3] = self.rho
             output[step*4+3][3] = 0.0  # initial pressure
+            output[step * 4+1][:3] = np.array((0.5, 0.0, 0.0), dtype=np.float32)  # initial velocity
+
         return output
 
     def load_boundary(self, particles):
