@@ -228,8 +228,9 @@ void AllocateParticles(){
     }
     // particle inside the domain
     else{
-        atomicAdd(StatusInt[0], 1);
-        barrier();
+        //atomicAdd(StatusInt[0], 1);
+        //barrier();
+        ;
     }
 }
 

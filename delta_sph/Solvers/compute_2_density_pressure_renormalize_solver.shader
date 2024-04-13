@@ -3,7 +3,7 @@
 layout(std430, binding=0) buffer Particles{
     // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
     // position x    , position y    , position z    , voxel_id
-    // velocity x    , velocity y    , velicity z    , mass
+    // velocity x    , velocity y    , velocity z    , mass
     // gradient rho x, gradient rho y, gradient rho z, rho
     // acceleration x, acceleration y, acceleration z, pressure
     mat4x4 Particle[];
@@ -187,12 +187,13 @@ float lap_viscosity_3d(float rij, float h){
 // Wendland C4
 float wendland_3d(float rij, float h){
     float q = rij/h;
-    if (q > 1){return 0;}
+    if (q > 1){return 0.0;}
     return Coeff_Wendland_3d * pow(1-q, 6)*(35/3*q*q+6*q+1);
 }
 vec3 grad_wendland_3d(float x, float y, float z, float rij, float h){
     float q = rij/h;
     if (q > 1){return vec3(0.0);}
+    if (q == 0.0){return vec3(0.0);}
     float w_prime = Coeff_Wendland_3d / h * (-56/3) * q * (1+5*q) * pow(1-q, 5);
     return w_prime * vec3(x / rij, y / rij, z / rij);
 }
@@ -296,7 +297,7 @@ int set_voxel_data_atomic(int voxel_id, int pointer, int value){
 bool containsNaN(mat3 matrix) {
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 3; j++) {
-            if (isnan(matrix[i][j])) {
+            if (isnan(matrix[i][j]) || isinf(matrix[i][j])) {
                 return true;
             }
         }
@@ -311,6 +312,8 @@ void ComputeParticleDensityRenormalize(){
     vec3 kernel_tmp = vec3(0.0);
     vec3 kernel_debug = vec3(0.0);
     float kernel_debug_value = 0.0;
+    float simple_density = 0.0;
+    float kernel_value = 0.0;
     float count = 0.0;
 
     // position of current particle focused
@@ -326,19 +329,18 @@ void ComputeParticleDensityRenormalize(){
         if (index_j==0){break;}// empty slot
         // P_j is a domain particle
         else if (index_j>0){
-
             // distance rij
             float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
-            if(rij==0.0){continue;}
+            //if(rij==0.0){continue;}
             vec3 xij = particle_pos-Particle[index_j-1][0].xyz;
             // distance less than h
             if (rij<h){
                 count += 1.0;
+                kernel_value = wendland_3d(rij, h);
+                kernel_debug_value += (Particle[index_j-1][1].w/Particle[index_j-1][2].w) * kernel_value;
                 kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
-                kernel_debug += kernel_tmp*Particle[index_j-1][1].w/Particle[index_j-1][2].w;
-                kernel_debug_value += wendland_3d(rij, h)*Particle[index_j-1][1].w/Particle[index_j-1][2].w;
-                renormalize += outerProduct(-xij, kernel_tmp)*Particle[index_j-1][1].w/Particle[index_j-1][2].w;
-                density_gradient += (Particle[index_j-1][2].w-Particle[particle_index-1][2].w)*kernel_tmp*Particle[index_j-1][1].w/Particle[index_j-1][2].w;
+                renormalize += outerProduct(-xij, kernel_tmp)*(Particle[index_j-1][1].w/Particle[index_j-1][2].w);
+                density_gradient += (Particle[index_j-1][2].w-Particle[particle_index-1][2].w)*kernel_tmp*(Particle[index_j-1][1].w/Particle[index_j-1][2].w);
             }
         }
         // P_j is a boundary particle
@@ -347,16 +349,16 @@ void ComputeParticleDensityRenormalize(){
             index_j = -index_j;
             // distance rij
             float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
-            if(rij==0.0){continue;}
+            //if(rij==0.0){continue;}
             vec3 xij = particle_pos-BoundaryParticle[index_j-1][0].xyz;
             // distance less than h
             if (rij<h){
                 count += 1.0;
+                kernel_value = wendland_3d(rij, h);
+                kernel_debug_value += (BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w) * kernel_value;
                 kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
-                kernel_debug += kernel_tmp*BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w;
-                kernel_debug_value += wendland_3d(rij, h)*BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w;
-                renormalize += outerProduct(-xij, kernel_tmp)*BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w;
-                density_gradient += (BoundaryParticle[index_j-1][2].w-Particle[particle_index-1][2].w)*kernel_tmp*BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w;
+                renormalize += outerProduct(-xij, kernel_tmp)*(BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w);
+                density_gradient += (BoundaryParticle[index_j-1][2].w-Particle[particle_index-1][2].w)*kernel_tmp*(BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w);
             }
         }
 
@@ -377,16 +379,16 @@ void ComputeParticleDensityRenormalize(){
                 else if (index_j>0){
                     // distance rij
                     float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
-                    if(rij==0.0){continue;}
+                    //if(rij==0.0){continue;}
                     vec3 xij = particle_pos-Particle[index_j-1][0].xyz;
                     // distance less than h
                     if (rij<h){
                         count += 1.0;
+                        kernel_value = wendland_3d(rij, h);
+                        kernel_debug_value += (Particle[index_j-1][1].w/Particle[index_j-1][2].w) * kernel_value;
                         kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
-                        kernel_debug += kernel_tmp*Particle[index_j-1][1].w/Particle[index_j-1][2].w;
-                        kernel_debug_value += wendland_3d(rij, h)*Particle[index_j-1][1].w/Particle[index_j-1][2].w;
-                        renormalize += outerProduct(-xij, kernel_tmp)*Particle[index_j-1][1].w/Particle[index_j-1][2].w;
-                        density_gradient += (Particle[index_j-1][2].w-Particle[particle_index-1][2].w)*kernel_tmp*Particle[index_j-1][1].w/Particle[index_j-1][2].w;
+                        renormalize += outerProduct(-xij, kernel_tmp)*(Particle[index_j-1][1].w/Particle[index_j-1][2].w);
+                        density_gradient += (Particle[index_j-1][2].w-Particle[particle_index-1][2].w)*kernel_tmp*(Particle[index_j-1][1].w/Particle[index_j-1][2].w);
                     }
                 }
                 else if (index_j<0){
@@ -394,16 +396,16 @@ void ComputeParticleDensityRenormalize(){
                     index_j = -index_j;
                     // distance rij
                     float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
-                    if(rij==0.0){continue;}
+                    //if(rij==0.0){continue;}
                     vec3 xij = particle_pos-BoundaryParticle[index_j-1][0].xyz;
                     // distance less than h
                     if (rij<h){
                         count += 1.0;
+                        kernel_value = wendland_3d(rij, h);
+                        kernel_debug_value += (BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w) * kernel_value;
                         kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
-                        kernel_debug += kernel_tmp*BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w;
-                        kernel_debug_value += wendland_3d(rij, h)*BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w;
-                        renormalize += outerProduct(-xij, kernel_tmp)*BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w;
-                        density_gradient += (BoundaryParticle[index_j-1][2].w-Particle[particle_index-1][2].w)*kernel_tmp*BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w;
+                        renormalize += outerProduct(-xij, kernel_tmp)*(BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w);
+                        density_gradient += (BoundaryParticle[index_j-1][2].w-Particle[particle_index-1][2].w)*kernel_tmp*(BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w);
                     }
                 }
 
@@ -423,10 +425,11 @@ void ComputeParticleDensityRenormalize(){
         density_gradient = renormalize*density_gradient;
     }
     // ParticleSubData[particle_index-1][0].xyz = kernel_debug;
-    // ParticleSubData[particle_index-1][0].w = kernel_debug_value;
-    ParticleSubData[particle_index-1][3].y = count;
+    ParticleSubData[particle_index-1][0].w = kernel_debug_value;
+    ParticleSubData[particle_index-1][1].w = count;
     Particle[particle_index-1][2].xyz = density_gradient;
-    Particle[particle_index-1][3].w = max(eos_constant*(Particle[particle_index-1][2].w-rest_dense), 0.0);
+
+    Particle[particle_index-1][3].w = eos_constant * (pow(Particle[particle_index-1][2].w/rest_dense, 1) -1);
 }
 
 void main() {

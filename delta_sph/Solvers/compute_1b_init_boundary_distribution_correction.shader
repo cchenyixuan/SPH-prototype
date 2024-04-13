@@ -3,7 +3,7 @@
 layout(std430, binding=0) buffer Particles{
     // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
     // position x    , position y    , position z    , voxel_id
-    // velocity x    , velocity y    , velicity z    , mass
+    // velocity x    , velocity y    , velocity z    , mass
     // gradient rho x, gradient rho y, gradient rho z, rho
     // acceleration x, acceleration y, acceleration z, pressure
     mat4x4 Particle[];
@@ -13,7 +13,7 @@ layout(std430, binding=1) buffer ParticlesSubData{
     // 0 , 0 , 0 , 0
     // 0 , 0 , 0 , 0
     // 0 , 0 , 0 , 0
-    // 0 , 0 , 0 , group_id
+    // D_rho/dt , 0 , 0 , group_id
     mat4x4 ParticleSubData[];
 };
 layout(std430, binding=2) buffer BoundaryParticles{
@@ -73,7 +73,6 @@ layout(std430, binding=15) buffer GlobalStatus2{
     // [self.H, self.R, self.DELTA_T, self.VISCOSITY, self.COHESION, self.ADHESION, voxel_offset_x, voxel_offset_y, voxel_offset_z, Inlet1In_float, Inlet2In_float, Inlet3In_float]
     float StatusFloat[];
 };
-
 layout(local_size_x=1, local_size_y=1, local_size_z=1) in;
 
 uint x_length = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
@@ -188,15 +187,17 @@ float lap_viscosity_3d(float rij, float h){
 // Wendland C4
 float wendland_3d(float rij, float h){
     float q = rij/h;
-    if (q > 1){return 0;}
+    if (q > 1){return 0.0;}
     return Coeff_Wendland_3d * pow(1-q, 6)*(35/3*q*q+6*q+1);
 }
 vec3 grad_wendland_3d(float x, float y, float z, float rij, float h){
     float q = rij/h;
     if (q > 1){return vec3(0.0);}
+    if (q == 0.0){return vec3(0.0);}
     float w_prime = Coeff_Wendland_3d / h * (-56/3) * q * (1+5*q) * pow(1-q, 5);
     return w_prime * vec3(x / rij, y / rij, z / rij);
 }
+
 
 int get_voxel_data(int voxel_id, int pointer){
     /*
@@ -293,48 +294,46 @@ int set_voxel_data_atomic(int voxel_id, int pointer, int value){
     return ans;
 }
 
-// from here
-void ComputeBoundaryParticleDensityPressure(){
+bool containsNaN(mat3 matrix) {
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            if (isnan(matrix[i][j]) || isinf(matrix[i][j])) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void ComputeBoundaryMassCorrection(){
+    float kernel_sum = 0.0;
     // position of current particle focused
     vec3 particle_pos = BoundaryParticle[particle_index-1][0].xyz;
-    // delete its density and pressure last time, optional
-    BoundaryParticle[particle_index-1][2].w = rest_dense;
-    BoundaryParticle[particle_index-1][3].w = 0.0;
-    BoundaryParticle[particle_index-1][3].xyz = vec3(0.0, 0.0, 0.0);
-    // Kernel sum
-    float kernel_sum = 0.0;
-    float kernel_value = 0.0;
-    // WSS direction
-    vec3 wall_shear_stress = vec3(0.0, 0.0, 0.0);
     // voxel_id of current particle
-    int voxel_id = int(round(BoundaryParticle[particle_index-1][0].w));// starts from 1
+    int voxel_id = int(round(BoundaryParticle[particle_index-1][0].w));  // starts from 1
     // find neighbourhood vertices, i.e., P_j
     // search in same voxel
     // calculate vertices inside
     for (int j=0; j<voxel_block_size; ++j){
         // vertex index
-        int index_j = get_voxel_data(voxel_id, 32+j);// starts from 1 or -1
-
-        if (index_j==0){ break; }// empty slot
+        int index_j = get_voxel_data(voxel_id, 32+j);  // starts from 1 or -1
+        if (index_j==0){break;}// empty slot
         // P_j is a domain particle
         else if (index_j>0){
-
-            // distance rij
-            float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
-            // distance less than h
-            if (rij<h){
-                // add density to location (2, 2) of its mat4x4
-                //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
-                kernel_value = wendland_3d(rij, h);
-                BoundaryParticle[particle_index-1][2].w += Particle[index_j-1][1].w * kernel_value;
-                kernel_sum += particle_volume*kernel_value;
-                wall_shear_stress += (particle_pos - Particle[index_j-1][0].xyz) / (rij + 0.01 * h2) * kernel_value;
-            }
+            continue;
         }
         // P_j is a boundary particle
         else if (index_j<0){
-            ;
+            // reverse index_j
+            index_j = -index_j;
+            // distance rij
+            float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
+            // distance less than h
+            if (rij<h){
+                kernel_sum += wendland_3d(rij, h);
+            }
         }
+
     }
 
     // search in neighbourhood voxels
@@ -344,36 +343,40 @@ void ComputeBoundaryParticleDensityPressure(){
         // valid neighborhood
         if(neighborhood_id!=0){
             // calculate vertices inside
-            for(int j=0; j<voxel_block_size; ++j){
+            for (int j=0; j<voxel_block_size; ++j){
                 // vertex index
                 int index_j = get_voxel_data(neighborhood_id, 32+j);  // starts from 1 or -1
-                if(index_j==0){break;}  // empty slot
+                if (index_j==0){ break; }// empty slot
                 // P_j is a domain particle
-                else if(index_j>0){
+                else if (index_j>0){
+                    continue;
+                }
+                else if (index_j<0){
+                    // reverse index_j
+                    index_j = -index_j;
                     // distance rij
-                    float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
+                    float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
                     // distance less than h
-                    if(rij<h){
-                        // add density to location (2, 2) of its mat4x4
-                        //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
-                        kernel_value = wendland_3d(rij, h);
-                        BoundaryParticle[particle_index-1][2].w += Particle[index_j-1][1].w * kernel_value;
-                        kernel_sum += particle_volume*kernel_value;
-                        wall_shear_stress += (particle_pos - Particle[index_j-1][0].xyz) / (rij + 0.01 * h2) * kernel_value;
+                    if (rij<h){
+                        kernel_sum += wendland_3d(rij, h);
                     }
                 }
-                else if(index_j<0){
-                    ;
-                }
+
             }
 
         }
     }
-    // BoundaryParticle[particle_index-1][2].w /= kernel_sum;
-    BoundaryParticle[particle_index-1][3].w = eos_constant * (BoundaryParticle[particle_index-1][2].w-rest_dense);
-    BoundaryParticle[particle_index-1][3].xyz = wall_shear_stress;
+    BoundaryParticle[particle_index-1][1].w = rest_dense / kernel_sum;
+    // BoundaryParticle[particle_index-1][2].w = 1000.0;
+    // BoundaryParticle[particle_index-1][3].w = 0.0;
+    // atomicMax(StatusInt[15], int(BoundaryParticle[particle_index-1][1].w*1000000000000.0));
+    // barrier();
+    // ParticleSubData[0][3].w = min(ParticleSubData[0][3].w, BoundaryParticle[particle_index-1][1].w);
 }
 
-void main(){
-    ComputeBoundaryParticleDensityPressure();
+void main() {
+    if(BoundaryParticle[particle_index-1][0].w != 0){
+        ComputeBoundaryMassCorrection();
+    }
+
 }

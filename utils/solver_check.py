@@ -10,7 +10,7 @@ class SolverCheck3D:
         # create a pcd around origin with x,y,z = +-h
         # regular distribution
         if particle_buffer is None:
-            self.buffer = self.regular_distribution()
+            self.buffer = self.regular_distribution_lattice()
             self.particle_volume = 4 / 3 * np.pi * self.R ** 3
             self.particle_volume = 1 / self.kernel_sum("wendland_3d_c")
             self.kernel_sum("poly6_3d")
@@ -18,12 +18,12 @@ class SolverCheck3D:
             self.kernel_sum("wendland_3d")
             self.kernel_sum("wendland_3d_c")
             self.grad_kernel_sum("grad_wendland_3d_c")
-            self.buffer = self.irregular_distribution()
-            self.kernel_sum("poly6_3d")
-            self.kernel_sum("spiky_3d")
-            self.kernel_sum("wendland_3d")
-            self.kernel_sum("wendland_3d_c")
-            self.grad_kernel_sum("grad_wendland_3d_c")
+            # self.buffer = self.irregular_distribution()
+            # self.kernel_sum("poly6_3d")
+            # self.kernel_sum("spiky_3d")
+            # self.kernel_sum("wendland_3d")
+            # self.kernel_sum("wendland_3d_c")
+            # self.grad_kernel_sum("grad_wendland_3d_c")
         else:
             self.buffer = particle_buffer
             self.particle_volume = 4 / 3 * np.pi * self.R ** 3
@@ -48,7 +48,7 @@ class SolverCheck3D:
         for particle in self.buffer:
             kernel_tmp = kernel(np.linalg.norm(particle[:3]), self.H)
             ans += kernel_tmp
-            count += bool(kernel_tmp)
+            count += 1 if np.linalg.norm(particle[:3]) <= self.H else 0
         print(
             f"Kernel: {kernel_name}, Kernel Sum: {ans}, Particle Count: {count}, Kernel Integral: {ans * self.particle_volume}")
         return ans
@@ -122,6 +122,35 @@ class SolverCheck3D:
         shape_z = int(5 + 2 * ((self.H - self.R) // (2 * np.sqrt(6) / 3 * self.R)))
         buffer = np.zeros((shape_z, shape_y, shape_x, 3), dtype=np.longfloat)
         offset_z = np.array([0.0, 2 / np.sqrt(3) * self.R, 2 * np.sqrt(6) / 3 * self.R], dtype=np.longfloat)
+        buffer[0] = layer
+        for i in range(1, shape_z):
+            buffer[i] = layer + offset_z * np.array([0.0, bool((i % 4 % 3)), np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1)],
+                                                    dtype=np.longfloat)
+
+        return buffer.reshape((-1, 3))
+
+    def regular_distribution_lattice(self):
+        origin = np.array([0.0, 0.0, 0.0], dtype=np.longfloat)
+
+        shape_x = int(5 + 2 * ((self.H - self.R) // (2 * self.R)))
+        row = np.zeros((shape_x, 3), dtype=np.longfloat)
+        offset_x = np.array([self.R * 2, 0.0, 0.0], dtype=np.longfloat)
+        row[0] = origin
+        for i in range(1, shape_x):
+            row[i] = origin + offset_x * np.array([np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1), 0.0, 0.0],
+                                                  dtype=np.longfloat)
+
+        shape_y = int(5 + 2 * ((self.H - self.R) // (np.sqrt(3) * self.R)))
+        layer = np.zeros((shape_y, shape_x, 3), dtype=np.longfloat)
+        offset_y = np.array([0.0, self.R * 2, 0.0], dtype=np.longfloat)
+        layer[0] = row
+        for i in range(1, shape_y):
+            layer[i] = row + offset_y * np.array([bool((i % 4 % 3)), np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1), 0.0],
+                                                 dtype=np.longfloat)
+
+        shape_z = int(5 + 2 * ((self.H - self.R) // (2 * np.sqrt(6) / 3 * self.R)))
+        buffer = np.zeros((shape_z, shape_y, shape_x, 3), dtype=np.longfloat)
+        offset_z = np.array([0.0, 0.0, 2 * self.R], dtype=np.longfloat)
         buffer[0] = layer
         for i in range(1, shape_z):
             buffer[i] = layer + offset_z * np.array([0.0, bool((i % 4 % 3)), np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1)],
@@ -326,16 +355,16 @@ class SolverCheck2D:
 
 
 if __name__ == "__main__":
-    h = 0.05
+    h = 0.01
     r = 0.0025
-    sc = SolverCheck2D(h, r)
+    sc = SolverCheck3D(h, r)
     particle_volume = sc()
     print(particle_volume)
     # Creating figure
     fig = plt.figure(figsize=(10, 7))
     ax = plt.axes(projection="3d")
 
-    ax.scatter(sc.buffer[:, 0], sc.buffer[:, 1], [sum(sc.grad_wendland_2d(p[0], p[1], np.linalg.norm(p[:2]), h)) for p in sc.buffer])
+    ax.scatter(sc.buffer[:, 0], sc.buffer[:, 1], sc.buffer[:, 2])
     # plt.xlim([-0.2 * h, 0.2 * h])
     # plt.ylim([-0.2 * h, 0.2 * h])
     plt.show()
