@@ -134,14 +134,14 @@ void main() {
         //v_color = vec4(abs(sin(float(voxel_id/2))), abs(cos(float(voxel_id/3))), abs(sin(float(voxel_id/5))), 0.3);
         switch(color_type){
             case 0:  // velocity
-                v_color = vec4(abs(Particle[v_index][1].xyz), 1.0);
+                v_color = vec4(abs(normalize(Particle[v_index][1].xyz)), 1.0);
                 // v_color = vec4(1.7671e-09*ParticleSubData[v_index][2].x, 1.7671e-09*ParticleSubData[v_index][2].x, 1.7671e-09*ParticleSubData[v_index][2].x, 1.0);
                 break;
             case 1:  // acc
-                v_color = vec4(abs(Particle[v_index][3].xyz), 1.0);
+                v_color = vec4(abs(normalize(Particle[v_index][3].xyz)), 1.0);
                 break;
             case 2:  // pressure(density)
-                v_color = vec4(get_color_gradient(Particle[v_index][2].w/1000.0, 0.01).xyz, 1.0);
+                v_color = vec4(get_color_gradient(abs(Particle[v_index][3].w)/float(StatusInt[14]), 0.1).xyz, 1.0);
                 break;
             case 3:  // N phase
                 if(ParticleSubData[v_index][3].w==1.0){v_color = vec4(0.0, 1.0, 0.0, 1.0);}
@@ -151,19 +151,22 @@ void main() {
                 else{v_color = vec4(1.0, 0.0, 0.0, 1.0);}
                 break;
             case 4:  // kernel value
-                v_color = vec4(get_color_gradient(ParticleSubData[v_index][2].x, 0.02).xyz, 1.0);
+                v_color = vec4(get_color_gradient(ParticleSubData[v_index][0].w, 0.1).xyz, 1.0);
                 break;
             case 5:  // d_rho/dt
-                v_color = vec4(get_color_gradient(ParticleSubData[v_index][3].x, 0.02).xyz, 1.0);
+                v_color = vec4(get_color_gradient(abs(ParticleSubData[v_index][3].x)/float(StatusInt[2]), 0.1).xyz, 1.0);
                 break;
             case 6:  // rho
-                v_color = vec4(Particle[v_index][2].w/1000, Particle[v_index][2].w/1000, Particle[v_index][2].w/1000, 1.0);
+                v_color = vec4(get_color_gradient(Particle[v_index][2].w/1000.0, 0.1).xyz, 1.0);
                 break;
             case 7:  // curl
                 v_color = vec4(abs(ParticleSubData[v_index][1].xyz)/ParticleSubData[v_index][3].z, 1.0);
                 break;
             case 8:  // wssd
                 v_color = vec4(ParticleSubData[v_index][3].x, -ParticleSubData[v_index][3].x, 0.0, 1.0);
+                break;
+            case 9:  // length of curl
+                v_color = vec4(ParticleSubData[v_index][3].z/10.0, ParticleSubData[v_index][3].z/10.0, ParticleSubData[v_index][3].z/10.0, 1.0);
                 break;
         }
     }

@@ -13,32 +13,32 @@ from project_loader import Project
 class Demo:
     def __init__(self):
         # --case parameters--
-        self.H = 0.05
-        self.R = 0.01
-        self.c0 = 20.0  # about 10 times of max velocity in this system ensures the density variation less than 1%
-        self.DELTA_T = 0.4*self.H/self.c0*0.5  # check CFL condition
-        self.save_frequency = int((1/self.DELTA_T)/100)  # approx. 0.01s
-        self.VISCOSITY = 0.1
-        self.COHESION = 0.0
+        self.H = 0.005
+        self.R = 0.00125
+        self.c0 = 40.0  # about 10 times of max velocity in this system ensures the density variation less than 1%
+        self.DELTA_T = 0.4 * self.H / self.c0 * 0.1  # check CFL condition
+        self.save_frequency = int((1 / self.DELTA_T) / 100)  # approx. 0.01s
+        self.VISCOSITY = 1.0
+        self.COHESION = 0.002
         self.ADHESION = 0.0
         self.REST_DENSE = 1000.0
-        self.EOS_CONSTANT = self.c0**2
-        self.PARTICLE_VOLUME = 4/3*np.pi*self.R**3  # SolverCheck3D(self.H, self.R)()
+        self.EOS_CONSTANT = self.c0**2 * self.REST_DENSE / 1  # c0**2*rho0/gamma
+        self.PARTICLE_VOLUME = SolverCheck3D(self.H, self.R)()  # 4/
+        print(self.PARTICLE_VOLUME)
+        self.voxel_buffer_file = r"C:\Users\WS8\PycharmProjects\VoxelizationAlg\voxelization\buffer.npy"
+        self.voxel_origin_offset = [0.004528,  0.007196, -0.100161]
+        self.domain_particle_file = r"C:\Users\WS8\PycharmProjects\SPH-prototype\models\delta-sph-test\domain.obj"
+        self.boundary_particle_file = r"C:\Users\WS8\PycharmProjects\SPH-prototype\models\delta-sph-test\boundary.obj"  # r"C:\Users\WS8\PycharmProjects\SPH-prototype\models\delta-sph-test\boundary.obj"
 
-        self.voxel_buffer_file = r"D:\ProgramFiles\PycharmProject\VoxelizationAlg\voxelization\buffer.npy"
-        self.voxel_origin_offset = [-4.513204, -1.05, -1.05]
-        self.domain_particle_file = r".\models\domain.obj"
-        self.boundary_particle_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\utils\o2.obj"
-
-        self.INLET1_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\utils\IP.obj"
+        self.INLET1_file = r"C:\Users\WS8\PycharmProjects\SPH-prototype\models\delta-sph-test\inlet.obj"
         self.INLET1_velocity = [0.0, 0.0, 0.0]
-        self.INLET1_area = 1.278**2
-        self.INLET2_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\utils\IP.obj"
+        self.INLET1_area = 1.278 ** 2
+        self.INLET2_file = r"C:\Users\WS8\PycharmProjects\SPH-prototype\models\delta-sph-test\inlet.obj"
         self.INLET2_velocity = [0.0, 0.0, 0.0]
-        self.INLET2_area = 0.075**2*np.pi
-        self.INLET3_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\utils\IP.obj"
+        self.INLET2_area = 0.075 ** 2 * np.pi
+        self.INLET3_file = r"C:\Users\WS8\PycharmProjects\SPH-prototype\models\delta-sph-test\inlet.obj"
         self.INLET3_velocity = [0.0, 0.0, 0.0]
-        self.INLET3_area = 0.00275**2*np.pi
+        self.INLET3_area = 0.00275 ** 2 * np.pi
 
         self.INLET1_FLUX = self.INLET1_area * np.linalg.norm(self.INLET1_velocity)  # S1*||Velocity1||
         self.INLET2_FLUX = self.INLET2_area * np.linalg.norm(self.INLET2_velocity)
@@ -85,8 +85,8 @@ class Demo:
 
         print(self.particle_number, self.boundary_particle_number, self.voxel_number)
         # global status buffer
-        # [n_particle, ptr_last_particle, n_voxel, voxel_memory_length, voxel_block_size, voxel_group_size]
-        self.global_status = np.array((self.particle_number, self.particle_number, self.voxel_number, self.inlet1_particles.shape[0]//4, self.inlet2_particles.shape[0]//4, self.inlet3_particles.shape[0]//4, 0, 0, 0, 0, 0, 0), dtype=np.int32)
+        # [n_particle, n_boundary_particle, debug: d rho, Inlet1ParticleNumber, Inlet2ParticleNumber, Inlet3ParticleNumber, Inlet1Pointer, Inlet2Pointer, Inlet3Pointer, Inlet1In, Inlet2In, Inlet3In, debug: rho, debug: none]
+        self.global_status = np.array((self.particle_number, self.particle_number, 0, self.inlet1_particles.shape[0]//4, self.inlet2_particles.shape[0]//4, self.inlet3_particles.shape[0]//4, 0, 0, 0, 0, 0, 0, 0, 99999, 0, 0, 0, 0, 0), dtype=np.int32)
         self.global_status_float = np.array((self.H, self.R, self.DELTA_T, self.VISCOSITY, self.COHESION, self.ADHESION, *self.offset, 0.0, 0.0, 0.0), dtype=np.float32)
 
         # all shaders are filled with certain parameters and saved in ./runtime
@@ -137,8 +137,7 @@ class Demo:
         self.sbo_boundary_particles = glGenBuffers(1)
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, self.sbo_boundary_particles)
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, self.sbo_boundary_particles)
-        glNamedBufferStorage(self.sbo_boundary_particles, self.boundary_particles.nbytes, self.boundary_particles,
-                             GL_DYNAMIC_STORAGE_BIT)
+        glNamedBufferStorage(self.sbo_boundary_particles, self.boundary_particles.nbytes, self.boundary_particles, GL_DYNAMIC_STORAGE_BIT)
         # voxels buffer
         for index, buffer in enumerate(self.voxel_groups):
             self.__setattr__(f"sbo_voxels_{index}", glGenBuffers(1))
@@ -224,9 +223,12 @@ class Demo:
             compileShader(open("runtime/compute_1_init_inlet_particles.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 2a
         self.compute_shader_2a = compileProgram(
-            compileShader(open("runtime/compute_2_boundary_density_pressure_solver.shader", "rb"), GL_COMPUTE_SHADER))
-        # compute shader 2
-        self.compute_shader_2 = compileProgram(
+            compileShader(open("runtime/compute_2_boundary_density_pressure_renormalize_solver.shader", "rb"), GL_COMPUTE_SHADER))
+        # compute shader 2aa
+        self.compute_shader_2aa = compileProgram(
+            compileShader(open("runtime/compute_2_boundary_density_shift_solver.shader", "rb"), GL_COMPUTE_SHADER))
+        # compute shader 2b
+        self.compute_shader_2b = compileProgram(
             compileShader(open("runtime/compute_2_density_pressure_renormalize_solver.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 2b
         self.compute_shader_2b = compileProgram(
@@ -300,7 +302,7 @@ class Demo:
         if self.need_init:
             self.need_init = False
             glUseProgram(self.compute_shader_0)
-            glDispatchCompute(self.boundary_particle_number//4+1, 2, 2)
+            glDispatchCompute(self.boundary_particle_number, 1, 1)
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
 
             glUseProgram(self.compute_shader_1)
@@ -312,7 +314,7 @@ class Demo:
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
         if not pause:
             glUseProgram(self.compute_shader_2a)
-            glDispatchCompute(self.boundary_particle_number//4+1, 2, 2)
+            glDispatchCompute(self.boundary_particle_number, 1, 1)
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
 
             glUseProgram(self.compute_shader_2)
@@ -343,8 +345,8 @@ class Demo:
             status_float[10] += self.INLET2_FLUX/self.PARTICLE_VOLUME*self.DELTA_T
             status_float[11] += self.INLET3_FLUX/self.PARTICLE_VOLUME*self.DELTA_T
 
-            status_int = np.empty((48,), dtype=np.byte)
-            glGetNamedBufferSubData(self.sbo_global_status, 0, 48, status_int)
+            status_int = np.empty((self.global_status.nbytes,), dtype=np.byte)
+            glGetNamedBufferSubData(self.sbo_global_status, 0, self.global_status.nbytes, status_int)
             status_int = np.frombuffer(status_int, dtype=np.int32)
             # mod inlet pointer by inlet number
             status_int[6] %= status_int[3]
@@ -357,9 +359,17 @@ class Demo:
             status_float[9] -= int(status_float[9])
             status_float[10] -= int(status_float[10])
             status_float[11] -= int(status_float[11])
-            glNamedBufferSubData(self.sbo_global_status2, 0, 48, status_float)
-            glNamedBufferSubData(self.sbo_global_status, 0, 48, status_int)
-            print(status_int[0], status_int[1])
+            print(status_int[0], status_int[1], f"Max Delta Rho: {float(status_int[2])}", f"Max Rho: {float(status_int[12])}", f"Min Rho: {float(status_int[13])}", f"Max Pressure: {float(status_int[14])}", f"Boundary Max Density: {float(status_int[15])/1000000000000.0}", f"Boundary Min Density: {float(status_int[16])/1000000000000.0}")
+
+            status_int[2] = int(0)
+            status_int[12] = int(0)
+            status_int[13] = int(9999999)
+            status_int[14] = int(0)
+            # status_int[15] = int(0)
+            # status_int[16] = int(9999999)
+
+
+
             self.particle_number = status_int[0]
             # print(status_int[0])
             # print(status_int[9:12])

@@ -55,15 +55,22 @@ class Project:
             output[step*4+1][3] = self.particle_mass
             output[step*4+2][3] = self.rho
             output[step*4+3][3] = 0.0  # initial pressure
-            output[step * 4+1][:3] = np.array((0.5, 0.0, 0.0), dtype=np.float32)  # initial velocity
-
+            output[step * 4+1][:3] = np.array((0.0, -1.0, 0.0), dtype=np.float32)  # initial velocity
+        # output2 = np.zeros((particles.shape[0] * 4, 4), dtype=np.float32)
+        # for step, vertex in enumerate(particles):
+        #     output2[step * 4][:3] = vertex + np.array((0.1, 0.0, 0.0), dtype=np.float32)
+        #     output2[step * 4 + 1][3] = self.particle_mass
+        #     output2[step * 4 + 2][3] = self.rho
+        #     output2[step * 4 + 3][3] = 0.0  # initial pressure
+        #     output2[step * 4 + 1][:3] = np.array((-1.0, 0.0, 0.0), dtype=np.float32)  # initial velocity
         return output
+        # return np.vstack((output, output2), dtype=np.float32)
 
     def load_boundary(self, particles):
         output = np.zeros((particles.shape[0] * 4, 4), dtype=np.float32)
         for step, vertex in enumerate(particles):
             output[step * 4][:3] = vertex
-            output[step * 4 + 1][3] = self.particle_mass*4.0  # boundary has 4 times mass as usual particles
+            output[step * 4 + 1][3] = self.particle_mass   # boundary has 4 times mass as usual particles
             output[step * 4 + 2][3] = self.rho
             output[step * 4 + 3][3] = 0.0  # initial pressure
         return output
