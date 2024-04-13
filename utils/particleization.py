@@ -46,7 +46,7 @@ class Particleization:
     def discretize_facets(self):
         for facet_key in self.half_edge_mesh.half_edge_facets.keys():
             facet = self.half_edge_mesh.half_edge_facets[facet_key]
-            nodes = [half_edge.vertex.numpy for half_edge in facet.half_edge]
+            nodes = [half_edge.vertex.numpy for half_edge in facet.half_edge.values()]
 
             p1, p2, p3 = nodes[0], nodes[1], nodes[2]
             center = 1 / 3 * (p1 + p2 + p3)
@@ -55,9 +55,9 @@ class Particleization:
             left = np.cross(facet.cal_normal(), up) / np.linalg.norm(np.cross(facet.cal_normal(), up))
             right = -left
             # shrink 2 radius
-            p1 = p1 + (center - p1) / np.linalg.norm(center - p1) * self.particle_radius * 2
-            p2 = p2 + (center - p2) / np.linalg.norm(center - p2) * self.particle_radius * 2
-            p3 = p3 + (center - p3) / np.linalg.norm(center - p3) * self.particle_radius * 2
+            p1 = p1 + (center - p1) / np.linalg.norm(center - p1) * self.particle_radius * 1.1
+            p2 = p2 + (center - p2) / np.linalg.norm(center - p2) * self.particle_radius * 1.1
+            p3 = p3 + (center - p3) / np.linalg.norm(center - p3) * self.particle_radius * 1.1
             # iterative part
             todo_points = deque()
             todo_points.append((0, 0))
@@ -72,6 +72,15 @@ class Particleization:
                     todo_points.append((x_coord, y_coord + 1)) if (x_coord, y_coord + 1) not in checked_points else None
                     todo_points.append((x_coord, y_coord - 1)) if (x_coord, y_coord - 1) not in checked_points else None
                 checked_points.add((x_coord, y_coord))
+
+    def extend(self, layers=1, reverse=False):
+        """
+        Extend the geometry along with the normal vectors,
+        :param layers:
+        :param reverse:
+        :return:
+        """
+        ...
 
     @staticmethod
     def point_inside_facet(p1, p2, p3, point: np.ndarray) -> bool:
@@ -90,7 +99,7 @@ class Particleization:
 
 
 if __name__ == '__main__':
-    test_mesh = r"D:\doc\airship.obj"
+    test_mesh = r"untitled.obj"
     v, fac = HalfEdgeMesh.load_obj(test_mesh)
     particle_system = Particleization(HalfEdgeMesh(v, fac), 0.005)
     particle_system.discretize_edges()

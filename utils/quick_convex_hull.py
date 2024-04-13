@@ -1,5 +1,5 @@
 import numpy as np
-from half_edge_mesh import HalfEdgeMesh, HalfEdge, HalfEdgeVertex, HalfEdgeFacet
+from utils.half_edge_mesh import HalfEdgeMesh, HalfEdge, HalfEdgeVertex, HalfEdgeFacet
 from collections import deque
 
 
@@ -87,6 +87,10 @@ class QuickConvexHull:
     def iteration(self, iterations=0):
         count = 0
         while self.deque:
+            with open(r"C:\Users\cchen\PycharmProjects\djproject\utils\compute_flag.txt", 'r') as flag:
+                if flag.read() == "stop":
+                    return 0
+                flag.close()
             count += 1
             print(len(self.deque))
             facet, outside_vertices = self.deque.pop()  # HalfEdgeFacet, [HalfEdgeVertex]
@@ -140,6 +144,8 @@ class QuickConvexHull:
                     # print(len(potential_outside_vertices), len(zero_distant_vertices))
             if count == iterations:
                 break
+            v_, f_ = self.initial_tetrahedron.export()
+            self.initial_tetrahedron.save_obj(rf"utils\output\{count}.obj", v_, f_)
 
     def get_visible_facets(self, vertex: HalfEdgeVertex, facet: HalfEdgeFacet):
         visible_facets = dict()
@@ -212,14 +218,7 @@ class QuickConvexHull:
 
 
 if __name__ == "__main__":
-    vert, fac = HalfEdgeMesh.load_obj(
-        r"D:\downloads\石田\acom180429_RUPTURED.obj")
+    vert, fac = HalfEdgeMesh.load_obj(r"test1.obj")
     ch = QuickConvexHull(vert)
     v, f = ch.initial_tetrahedron.export()
-    with open(r"D:\downloads\石田\acom180429_RUPTURED_2_convexhull.obj", "w") as f_:
-        f_.write("o text.obj\n")
-        for vertex_ in v:
-            f_.write(f"v {vertex_[0]} {vertex_[1]} {vertex_[2]}\n")
-        for facet_ in f:
-            f_.write(f"f {facet_[0]} {facet_[1]} {facet_[2]}\n")
-        f_.close()
+    ch.initial_tetrahedron.save_obj(rf"utils\output\final.obj", v, f)
