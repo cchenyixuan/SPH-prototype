@@ -9,16 +9,18 @@ from utils.solver_check import SolverCheck3D
 
 from project_loader import Project
 
+from utils.file_loader import load_obj
+
 
 class Demo:
     def __init__(self):
         # --case parameters--
-        self.H = 0.05
-        self.R = 0.01
-        self.c0 = 40.0  # about 10 times of max velocity in this system ensures the density variation less than 1%
-        self.DELTA_T = 0.4*self.H/self.c0  # check CFL condition
+        self.H = 0.06
+        self.R = 0.0125
+        self.c0 = 50.0  # about 10 times of max velocity in this system ensures the density variation less than 1%
+        self.DELTA_T = 0.1*self.R*2/self.c0   # check CFL condition
         self.save_frequency = int((1/self.DELTA_T)/100)  # approx. 0.01s
-        self.VISCOSITY = 0.02
+        self.VISCOSITY = 0.0186
         self.COHESION = 0.0
         self.ADHESION = 0.0
         self.REST_DENSE = 1000.0
@@ -26,17 +28,17 @@ class Demo:
         self.PARTICLE_VOLUME = SolverCheck3D(self.H, self.R)()
 
         self.voxel_buffer_file = r"D:\ProgramFiles\PycharmProject\VoxelizationAlg\voxelization\buffer.npy"
-        self.voxel_origin_offset = [-2.435282, -1.05, -1.05]
-        self.domain_particle_file = r".\models\domain.obj"
-        self.boundary_particle_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\utils\o.obj"
+        self.voxel_origin_offset = [-0.027856, -0.328568, -0.37045]
+        self.domain_particle_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\models\delta-sph-test/domain.obj"
+        self.boundary_particle_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\models\delta-sph-test/boundary.obj"
 
-        self.INLET1_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\utils\IP.obj"
-        self.INLET1_velocity = [2.0, 0.0, 0.0]
-        self.INLET1_area = 1.278**2
-        self.INLET2_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\utils\IP.obj"
+        self.INLET1_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\models\delta-sph-test/inlet.obj"
+        self.INLET1_velocity = [0.0, .0, 0.0]
+        self.INLET1_area = 0.3*0.29 * 0.9
+        self.INLET2_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\models\delta-sph-test/inlet.obj"
         self.INLET2_velocity = [0.0, 0.0, 0.0]
         self.INLET2_area = 0.075**2*np.pi
-        self.INLET3_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\utils\IP.obj"
+        self.INLET3_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\models\delta-sph-test/inlet.obj"
         self.INLET3_velocity = [0.0, 0.0, 0.0]
         self.INLET3_area = 0.00275**2*np.pi
 
@@ -114,6 +116,7 @@ class Demo:
                 "Coeff_Viscosity_2d": 40 / (np.pi * self.H ** 2),
                 "Coeff_Viscosity_3d": 15 / (2 * np.pi * self.H ** 3),
                 "Coeff_Wendland_3d": 495 / (32 * np.pi * self.H ** 3),
+                "Coeff_Wendland_3d_d": 495 / (32 * np.pi * (self.R*2) ** 3),
                 "MAX_PARTICLE_MASS": 6*self.REST_DENSE*self.PARTICLE_VOLUME,
                 "ORIGINAL_PARTICLE_MASS": self.REST_DENSE*self.PARTICLE_VOLUME,
         })
@@ -209,39 +212,56 @@ class Demo:
         glEnableVertexAttribArray(0)
         glVertexAttribIPointer(0, 1, GL_INT, 4, ctypes.c_void_p(0))
 
+        # vao of sphere
+        self.sphere_vao = glGenVertexArrays(1)
+        glBindVertexArray(self.sphere_vao)
+        # use sphere_vbo for instancing
+        self.sphere_buffer, self.sphere_indices = load_obj(r"Components/sphere.obj")
+        self.sphere_vbo = glGenBuffers(1)
+        glBindBuffer(GL_ARRAY_BUFFER, self.sphere_vbo)
+        glBufferData(GL_ARRAY_BUFFER, self.sphere_buffer.nbytes, self.sphere_buffer, GL_STATIC_DRAW)
+        glEnableVertexAttribArray(1)
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 12, ctypes.c_void_p(0))
+        self.sphere_index_ebo = glGenBuffers(1)
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.sphere_index_ebo)
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, self.sphere_indices.nbytes, self.sphere_indices, GL_STATIC_DRAW)
+
         # compute shader
         self.need_init = True
 
         # compute shader 0
         self.compute_shader_0 = compileProgram(
-            compileShader(open("runtime/compute_0_init_boundary_particles.shader", "rb"), GL_COMPUTE_SHADER))
+            compileShader(open("./runtime/compute_0_init_boundary_particles.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 1
         self.compute_shader_1 = compileProgram(
-            compileShader(open("runtime/compute_1_init_domain_particles.shader", "rb"), GL_COMPUTE_SHADER))
+            compileShader(open("./runtime/compute_1_init_domain_particles.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 1i
         self.compute_shader_1i = compileProgram(
-            compileShader(open("runtime/compute_1_init_inlet_particles.shader", "rb"), GL_COMPUTE_SHADER))
+            compileShader(open("./runtime/compute_1_init_inlet_particles.shader", "rb"), GL_COMPUTE_SHADER))
+        # compute shader 1b
+        self.compute_shader_1b = compileProgram(
+            compileShader(open("./runtime/compute_1b_init_boundary_distribution_correction.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 2a
         self.compute_shader_2a = compileProgram(
-            compileShader(open("runtime/compute_2_boundary_density_pressure_solver.shader", "rb"), GL_COMPUTE_SHADER))
+            compileShader(open("./runtime/compute_2_boundary_density_pressure_solver.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 2
         self.compute_shader_2 = compileProgram(
-            compileShader(open("runtime/compute_2_density_pressure_solver.shader", "rb"), GL_COMPUTE_SHADER))
-        # compute shader 2b
-        self.compute_shader_2b = compileProgram(
-            compileShader(open("runtime/compute_2_density_derivative_solver.shader", "rb"), GL_COMPUTE_SHADER))
+            compileShader(open("./runtime/compute_2_density_pressure_solver.shader", "rb"), GL_COMPUTE_SHADER))
+        # # compute shader 2b
+        # self.compute_shader_2b = compileProgram(
+        #     compileShader(open("../runtime/compute_2_density_derivative_solver.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 3
         self.compute_shader_3 = compileProgram(
-            compileShader(open("runtime/compute_3_force_solver.shader", "rb"), GL_COMPUTE_SHADER))
+            compileShader(open("./runtime/compute_3_force_solver.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 4
         self.compute_shader_4 = compileProgram(
-            compileShader(open("runtime/compute_4_integrate_solver.shader", "rb"), GL_COMPUTE_SHADER))
+            compileShader(open("./runtime/compute_4_integrate_solver.shader", "rb"), GL_COMPUTE_SHADER))
         # compute shader 5
         self.compute_shader_5 = compileProgram(
-            compileShader(open("runtime/compute_5_voxel_upgrade_solver.shader", "rb"), GL_COMPUTE_SHADER))
-        # compute shader 6
-        self.compute_shader_6 = compileProgram(
-            compileShader(open("runtime/compute_6_combine_solver.shader", "rb"), GL_COMPUTE_SHADER))
+            compileShader(open("./runtime/compute_5_voxel_upgrade_solver.shader", "rb"), GL_COMPUTE_SHADER))
+        # # compute shader 6
+        # self.compute_shader_6 = compileProgram(
+        #     compileShader(open("../runtime/compute_6_combine_solver.shader", "rb"), GL_COMPUTE_SHADER))
         # # compute shader a
         # self.compute_shader_a = compileProgram(
         #     compileShader(open("./MovingBoundaryShaders/compute_a_moving_boundary.shader", "rb"), GL_COMPUTE_SHADER))
@@ -250,18 +270,19 @@ class Demo:
         # glUniform1i(self.compute_shader_a_current_step_loc, 0)
 
         # render shader
-        self.render_shader = compileProgram(compileShader(open("runtime/vertex.shader", "rb"), GL_VERTEX_SHADER),
-                                            compileShader(open("runtime/fragment.shader", "rb"), GL_FRAGMENT_SHADER))
+        self.render_shader = compileProgram(compileShader(open("./runtime/vertex.shader", "rb"), GL_VERTEX_SHADER),
+                                            compileShader(open("./runtime/fragment.shader", "rb"), GL_FRAGMENT_SHADER))
         glUseProgram(self.render_shader)
         self.projection_loc = glGetUniformLocation(self.render_shader, "projection")
         self.view_loc = glGetUniformLocation(self.render_shader, "view")
         self.render_shader_color_type_loc = glGetUniformLocation(self.render_shader, "color_type")
 
         glUniform1i(self.render_shader_color_type_loc, 0)
+
         # render shader vector
-        self.render_shader_vector = compileProgram(compileShader(open("runtime/vector_vertex.shader", "rb"), GL_VERTEX_SHADER),
-                                                   compileShader(open("runtime/vector_geometry.shader", "rb"), GL_GEOMETRY_SHADER),
-                                                   compileShader(open("runtime/vector_fragment.shader", "rb"), GL_FRAGMENT_SHADER))
+        self.render_shader_vector = compileProgram(compileShader(open("./runtime/vector_vertex.shader", "rb"), GL_VERTEX_SHADER),
+                                                   compileShader(open("./runtime/vector_geometry.shader", "rb"), GL_GEOMETRY_SHADER),
+                                                   compileShader(open("./runtime/vector_fragment.shader", "rb"), GL_FRAGMENT_SHADER))
         glUseProgram(self.render_shader_vector)
         self.vector_projection_loc = glGetUniformLocation(self.render_shader_vector, "projection")
         self.vector_view_loc = glGetUniformLocation(self.render_shader_vector, "view")
@@ -272,8 +293,8 @@ class Demo:
 
 
         # render shader boundary
-        self.render_shader_boundary = compileProgram(compileShader(open("runtime/boundary_vertex.shader", "rb"), GL_VERTEX_SHADER),
-                                                     compileShader(open("runtime/fragment.shader", "rb"), GL_FRAGMENT_SHADER))
+        self.render_shader_boundary = compileProgram(compileShader(open("./runtime/boundary_vertex.shader", "rb"), GL_VERTEX_SHADER),
+                                                     compileShader(open("./runtime/fragment.shader", "rb"), GL_FRAGMENT_SHADER))
         glUseProgram(self.render_shader_boundary)
         self.boundary_projection_loc = glGetUniformLocation(self.render_shader_boundary, "projection")
         self.boundary_view_loc = glGetUniformLocation(self.render_shader_boundary, "view")
@@ -287,9 +308,9 @@ class Demo:
 #
         # glUniform1i(self.compute_shader_voxel_id_loc, 0)
         # render shader for voxel
-        self.render_shader_voxel = compileProgram(compileShader(open("runtime/voxel_vertex.shader", "rb"), GL_VERTEX_SHADER),
-                                                  compileShader(open("runtime/voxel_geometry.shader", "rb"), GL_GEOMETRY_SHADER),
-                                                  compileShader(open("runtime/voxel_fragment.shader", "rb"), GL_FRAGMENT_SHADER))
+        self.render_shader_voxel = compileProgram(compileShader(open("./runtime/voxel_vertex.shader", "rb"), GL_VERTEX_SHADER),
+                                                  compileShader(open("./runtime/voxel_geometry.shader", "rb"), GL_GEOMETRY_SHADER),
+                                                  compileShader(open("./runtime/voxel_fragment.shader", "rb"), GL_FRAGMENT_SHADER))
         glUseProgram(self.render_shader_voxel)
 
         self.voxel_projection_loc = glGetUniformLocation(self.render_shader_voxel, "projection")
@@ -308,6 +329,10 @@ class Demo:
 
             glUseProgram(self.compute_shader_1i)
             glDispatchCompute(self.inlet_particle_number, 1, 1)
+            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
+
+            glUseProgram(self.compute_shader_1b)
+            glDispatchCompute(self.boundary_particle_number//4+1, 2, 2)
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
         if not pause:
             glUseProgram(self.compute_shader_2a)
@@ -334,9 +359,9 @@ class Demo:
             glDispatchCompute(self.voxel_number//9+1, 3, 3)
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
 
-            glUseProgram(self.compute_shader_6)
-            glDispatchCompute(self.voxel_number // 9 + 1, 3, 3)
-            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
+            # glUseProgram(self.compute_shader_6)
+            # glDispatchCompute(self.voxel_number // 9 + 1, 3, 3)
+            # glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT)
 
             # pull global_status buffer back and add delta_t*S*v
             status_float = np.empty((48,), dtype=np.byte)
@@ -395,21 +420,23 @@ class Demo:
             glDrawArrays(GL_POINTS, 0, self.voxel_number)
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
 
-        if show_boundary:
-            glUseProgram(self.render_shader_boundary)
-            glPointSize(4)
-            glDrawArrays(GL_POINTS, 0, self.boundary_particle_number)
-            #
-
-        glUseProgram(self.render_shader)
-        glPointSize(2)
-        glDrawArrays(GL_POINTS, 0, self.particle_number+1000)
-
         if show_vector:
             glUseProgram(self.render_shader_vector)
             glLineWidth(1)
             glDrawArrays(GL_POINTS, 0, self.particle_number+1000)
 
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
+        glBindVertexArray(self.sphere_vao)
 
+        if show_boundary:
+            glUseProgram(self.render_shader_boundary)
+            # glPointSize(4)
+            # glDrawArrays(GL_POINTS, 0, self.boundary_particle_number)
+            glDrawElementsInstanced(GL_TRIANGLES, 1080, GL_UNSIGNED_INT, None, self.boundary_particle_number)
 
+        glUseProgram(self.render_shader)
+        # glPointSize(2)
+        # glDrawArrays(GL_POINTS, 0, self.particle_number + 1000)
+        glDrawElementsInstanced(GL_TRIANGLES, 1080, GL_UNSIGNED_INT, None, self.particle_number)
 
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)

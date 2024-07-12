@@ -10,7 +10,7 @@ class Project:
         self.rho = rho
         self.particle_mass = self.rho * self.volume
         self.voxels, self.offset = np.load(voxel), np.array(offset, dtype=np.float32)
-        self.particles = self.load_domain(self.load_file(domain))
+        self.particles = self.load_domain(self.load_file(domain))[:4000]
         self.boundary_particles = self.load_boundary(self.load_file(boundary))
         self.inlet_particles = [self.load_inlet(self.load_file(inlets[0][0]), np.array(inlets[0][1], dtype=np.float32)),
                                 self.load_inlet(self.load_file(inlets[1][0]), np.array(inlets[1][1], dtype=np.float32)),
@@ -55,7 +55,9 @@ class Project:
             output[step*4+1][3] = self.particle_mass
             output[step*4+2][3] = self.rho
             output[step*4+3][3] = 0.0  # initial pressure
-            output[step * 4+1][:3] = np.array((0.0, -1.0, 0.0), dtype=np.float32)  # initial velocity
+            output[step * 4+1][:3] = np.array((0.0, 0.0, 0.0), dtype=np.float32)  # initial velocity
+            output[step * 4][1] -= 0.8
+            output[step * 4 + 2][2] = 33.0  # temperature
         # output2 = np.zeros((particles.shape[0] * 4, 4), dtype=np.float32)
         # for step, vertex in enumerate(particles):
         #     output2[step * 4][:3] = vertex + np.array((0.1, 0.0, 0.0), dtype=np.float32)
@@ -83,6 +85,8 @@ class Project:
             output[step * 4 + 1][3] = self.particle_mass
             output[step * 4 + 2][3] = self.rho
             output[step * 4 + 3][3] = 0.0  # initial pressure
+
+            output[step * 4 + 2][2] = 27.0  # temperature
         return output
 
     def load_moving_boundary(self, particles):

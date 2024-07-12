@@ -13,7 +13,7 @@ layout(std430, binding=1) buffer ParticlesSubData{
     // 0 , 0 , 0 , 0
     // 0 , 0 , 0 , 0
     // 0 , 0 , 0 , 0
-    // D_rho/dt , 0 , 0 , group_id
+    // 0 , 0 , 0 , group_id
     mat4x4 ParticleSubData[];
 };
 layout(std430, binding=2) buffer BoundaryParticles{
@@ -73,6 +73,7 @@ layout(std430, binding=15) buffer GlobalStatus2{
     // [self.H, self.R, self.DELTA_T, self.VISCOSITY, self.COHESION, self.ADHESION, voxel_offset_x, voxel_offset_y, voxel_offset_z, Inlet1In_float, Inlet2In_float, Inlet3In_float]
     float StatusFloat[];
 };
+
 layout(local_size_x=1, local_size_y=1, local_size_z=1) in;
 
 uint x_length = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
@@ -101,9 +102,8 @@ const float Coeff_Poly6_2d = 1.0;  // 4 / (PI * pow(h, 8));
 const float Coeff_Poly6_3d = 1.0;  // 315 / (64 * PI * pow(h, 9));
 const float Coeff_Spiky_2d = 1.0;  // 10 / (PI * pow(h, 5));
 const float Coeff_Spiky_3d = 1.0;  // 15 / (PI * pow(h, 6));
-const float Coeff_Viscosity_2d = 1.0;  // 40 / (PI * h2);
-const float Coeff_Viscosity_3d = 1.0;  // 15 / (2 * PI * pow(h, 3));
-const float Coeff_Wendland_3d = 1.0;  // 495 / (256 * PI * pow(h, 3));
+const float Coeff_Viscosity_2d = 1.0; // 40 / (PI * h2);
+const float Coeff_Viscosity_3d = 1.0; // 15 / (2 * PI * pow(h, 3));
 
 
 float h2 = h * h;
@@ -214,8 +214,19 @@ float wendland_3d(float rij, float h){
 vec3 grad_wendland_3d(float x, float y, float z, float rij, float h){
     float q = rij/h;
     if (q > 1){return vec3(0.0);}
-    if (q == 0.0){return vec3(0.0);}
     float w_prime = Coeff_Wendland_3d / h * (-56/3) * q * (1+5*q) * pow(1-q, 5);
+    return w_prime * vec3(x / rij, y / rij, z / rij);
+}
+
+float wendland_3d_d(float rij, float h){
+    float q = rij/h;
+    if (q > 1){return 0;}
+    return Coeff_Wendland_3d_d * pow(1-q, 6)*(35/3*q*q+6*q+1);
+}
+vec3 grad_wendland_3d_d(float x, float y, float z, float rij, float h){
+    float q = rij/h;
+    if (q > 1){return vec3(0.0);}
+    float w_prime = Coeff_Wendland_3d_d / h * (-56/3) * q * (1+5*q) * pow(1-q, 5);
     return w_prime * vec3(x / rij, y / rij, z / rij);
 }
 
@@ -314,58 +325,58 @@ int set_voxel_data_atomic(int voxel_id, int pointer, int value){
     return ans;
 }
 
-void ComputeParticleDensity(){
-    // DEBUG FOR KERNEL VALUE
-    ParticleSubData[particle_index-1][3].x = 0.0;
-    vec3 kernel_tmp = vec3(0.0);
-    vec3 kernel_debug = vec3(0.0);
-    float delta_rho = 0.0;
-    int count = 0;
+// from here
+void ComputeBoundaryParticleDensityPressure(){
     // position of current particle focused
-    vec3 particle_pos = Particle[particle_index-1][0].xyz;
-
+    vec3 particle_pos = BoundaryParticle[particle_index-1][0].xyz;
+    // delete its density and pressure last time, optional
+    BoundaryParticle[particle_index-1][2].w = 0.0;
+    BoundaryParticle[particle_index-1][3].w = 0.0;
+    BoundaryParticle[particle_index-1][3].xyz = vec3(0.0, 0.0, 0.0);
+    // Kernel sum
+    float kernel_sum = 0.0;
+    float kernel_value = 0.0;
+    // WSS direction
+    vec3 wall_shear_stress = vec3(0.0, 0.0, 0.0);
     // voxel_id of current particle
-    int voxel_id = int(round(Particle[particle_index-1][0].w));  // starts from 1
+    int voxel_id = int(round(BoundaryParticle[particle_index-1][0].w));// starts from 1
     // find neighbourhood vertices, i.e., P_j
     // search in same voxel
     // calculate vertices inside
     for (int j=0; j<voxel_block_size; ++j){
         // vertex index
-        int index_j = get_voxel_data(voxel_id, 32+j);  // starts from 1 or -1
-        if (index_j==0){break;}// empty slot
+        int index_j = get_voxel_data(voxel_id, 32+j);// starts from 1 or -1
+
+        if (index_j==0){ break; }// empty slot
         // P_j is a domain particle
         else if (index_j>0){
+
             // distance rij
             float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
-            // if(rij==0.0){continue;}
-            vec3 xij = particle_pos - Particle[index_j-1][0].xyz;
             // distance less than h
-            if (rij<h){
-                count += 1;
-                kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
-                kernel_debug += kernel_tmp;
-                delta_rho += (Particle[particle_index-1][1].w*dot(Particle[particle_index-1][1].xyz-Particle[index_j-1][1].xyz, kernel_tmp))
-                             + 0.1*h*c0*dot(-2.0*(Particle[index_j-1][2].w-Particle[particle_index-1][2].w)*xij/(rij*rij+0.01*h2)-(Particle[particle_index-1][2].xyz + Particle[index_j-1][2].xyz), kernel_tmp)*(Particle[index_j-1][1].w/Particle[index_j-1][2].w);
+            if (rij<2*r){
+                // add density to location (2, 2) of its mat4x4
+                //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
+                kernel_value = wendland_3d_d(rij, 2*r);
+                BoundaryParticle[particle_index-1][2].w += Particle[index_j-1][1].w * kernel_value;
+                // kernel_sum += particle_volume*kernel_value;
+                wall_shear_stress += (particle_pos - Particle[index_j-1][0].xyz) / (rij + 0.01 * h2) * kernel_value;
             }
         }
         // P_j is a boundary particle
         else if (index_j<0){
-            // reverse index_j
-            index_j = -index_j;
-            // distance rij
-            float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
-            // if(rij==0.0){continue;}
-            vec3 xij = particle_pos - BoundaryParticle[index_j-1][0].xyz;
-            // distance less than h
-            if (rij<h){
-                count += 1;
-                kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
-                kernel_debug += kernel_tmp;
-                delta_rho += (Particle[particle_index-1][1].w*dot(Particle[particle_index-1][1].xyz-BoundaryParticle[index_j-1][1].xyz, kernel_tmp))
-                             + 0.1*h*c0*dot(-2.0*(BoundaryParticle[index_j-1][2].w-Particle[particle_index-1][2].w)*xij/(rij*rij+0.01*h2)-(Particle[particle_index-1][2].xyz + BoundaryParticle[index_j-1][2].xyz), kernel_tmp)*(BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w);
-            }
+            ;
+            // // reverse index_j
+            // index_j = -index_j;
+            // // distance rij
+            // float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
+            // // distance less than h
+            // if (rij<h){
+            //     // add density to location (2, 2) of its mat4x4
+            //     //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
+            //     BoundaryParticle[particle_index-1][2].w += BoundaryParticle[index_j-1][1].w * poly6_3d(rij, h);
+            // }
         }
-
     }
 
     // search in neighbourhood voxels
@@ -375,65 +386,47 @@ void ComputeParticleDensity(){
         // valid neighborhood
         if(neighborhood_id!=0){
             // calculate vertices inside
-            for (int j=0; j<voxel_block_size; ++j){
+            for(int j=0; j<voxel_block_size; ++j){
                 // vertex index
                 int index_j = get_voxel_data(neighborhood_id, 32+j);  // starts from 1 or -1
-                if (index_j==0){ break; }// empty slot
+                if(index_j==0){break;}  // empty slot
                 // P_j is a domain particle
-                else if (index_j>0){
+                else if(index_j>0){
                     // distance rij
                     float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
-                    // if(rij==0.0){continue;}
-                    vec3 xij = particle_pos - Particle[index_j-1][0].xyz;
                     // distance less than h
-                    if (rij<h){
-                        count += 1;
-                        kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
-                        kernel_debug += kernel_tmp;
-                        delta_rho += (Particle[particle_index-1][1].w*dot(Particle[particle_index-1][1].xyz-Particle[index_j-1][1].xyz, kernel_tmp))
-                                    + 0.1*h*c0*dot(-2.0*(Particle[index_j-1][2].w-Particle[particle_index-1][2].w)*xij/(rij*rij+0.01*h2)-(Particle[particle_index-1][2].xyz + Particle[index_j-1][2].xyz), kernel_tmp)*(Particle[index_j-1][1].w/Particle[index_j-1][2].w);
+                    if(rij<2*r){
+                        // add density to location (2, 2) of its mat4x4
+                        //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
+                        kernel_value = wendland_3d_d(rij, 2*r);
+                        BoundaryParticle[particle_index-1][2].w += Particle[index_j-1][1].w * kernel_value;
+                        // kernel_sum += particle_volume*kernel_value;
+                        wall_shear_stress += (particle_pos - Particle[index_j-1][0].xyz) / (rij + 0.01 * h2) * kernel_value;
                     }
                 }
-                else if (index_j<0){
-                    // reverse index_j
-                    index_j = -index_j;
-                    // distance rij
-                    float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
-                    // if(rij==0.0){continue;}
-                    vec3 xij = particle_pos - BoundaryParticle[index_j-1][0].xyz;
-                    // distance less than h
-                    if (rij<h){
-                        count += 1;
-                        kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
-                        kernel_debug += kernel_tmp;
-                        delta_rho += (Particle[particle_index-1][1].w*dot(Particle[particle_index-1][1].xyz-BoundaryParticle[index_j-1][1].xyz, kernel_tmp))
-                                    + 0.1*h*c0*dot(-2.0*(BoundaryParticle[index_j-1][2].w-Particle[particle_index-1][2].w)*xij/(rij*rij+0.01*h2)-(Particle[particle_index-1][2].xyz + BoundaryParticle[index_j-1][2].xyz), kernel_tmp)*(BoundaryParticle[index_j-1][1].w/BoundaryParticle[index_j-1][2].w);
-                    }
+                else if(index_j<0){
+                    ;
+                    // // reverse index_j
+                    // index_j = -index_j;
+                    // // distance rij
+                    // float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
+                    // // distance less than h
+                    // if(rij<h){
+                    //     // add density to location (2, 2) of its mat4x4
+                    //     //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
+                    //     BoundaryParticle[particle_index-1][2].w += BoundaryParticle[index_j-1][1].w * poly6_3d(rij, h);
+                    // }
                 }
-
             }
 
         }
     }
-
-
-    // delta_rho += 0.1*h*c0*psi;
-    if(count>10){ParticleSubData[particle_index-1][3].x = delta_rho;}
-    else{ParticleSubData[particle_index-1][3].x = 0.0;}
-    atomicMax(StatusInt[2], abs(int(ParticleSubData[particle_index-1][3].x)));
-    barrier();
-    atomicMax(StatusInt[12], int(Particle[particle_index-1][2].w));
-    barrier();
-    atomicMin(StatusInt[13], int(Particle[particle_index-1][2].w));
-    barrier();
-    atomicMax(StatusInt[14], int(Particle[particle_index-1][3].w));
-    barrier();
-
+    // BoundaryParticle[particle_index-1][2].w /= kernel_sum;
+    BoundaryParticle[particle_index-1][2].w += rest_dense;
+    BoundaryParticle[particle_index-1][3].w = max(eos_constant * (pow(BoundaryParticle[particle_index-1][2].w/rest_dense, 1) -1), 0.0);
+    BoundaryParticle[particle_index-1][3].xyz = wall_shear_stress;
 }
 
-void main() {
-    if(Particle[particle_index-1][0].w != 0){
-        ComputeParticleDensity();
-    }
-
+void main(){
+    ComputeBoundaryParticleDensityPressure();
 }

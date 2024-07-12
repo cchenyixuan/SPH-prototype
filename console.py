@@ -5,7 +5,7 @@ import pyrr
 import numpy as np
 from OpenGL.GL import *
 import glfw
-import delta_sph.Demo as Demo
+import wcsph.Demo as Demo
 from camera import Camera
 from PIL import Image
 from Coordinates import Coord

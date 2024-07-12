@@ -1,6 +1,7 @@
 #version 460 core
 
-layout(location=0) in int v_index; // vertex id
+// layout(location=0) in int v_index; // vertex id   TODO: disabled!!! replaced with gl_InstanceID
+layout(location=1) in vec3 sphere_pos; // sphere vertex position
 out vec4 v_color; // color output
 
 layout(std430, binding=0) buffer Particles{
@@ -87,8 +88,10 @@ const int voxel_memory_length = 2912;
 const int voxel_block_size = 960;
 const int VOXEL_GROUP_SIZE = 300000;
 
+int v_index = gl_InstanceID;
+
 void main() {
-    gl_Position = projection*view*vec4(BoundaryParticle[v_index][0].xyz, 1.0); // set vertex position, w=1.0
+    gl_Position = projection*view*vec4(BoundaryParticle[v_index][0].xyz + r*sphere_pos, 1.0); // set vertex position, w=1.0
     v_color = vec4(0.5, 0.5, 0.5, 0.3);
     if (abs(BoundaryParticle[v_index][3].x) + abs(BoundaryParticle[v_index][3].y) + abs(BoundaryParticle[v_index][3].z) > 0.0000001){
         v_color = vec4(abs(BoundaryParticle[v_index][3].xyz)/length(BoundaryParticle[v_index][3].xyz), 0.3);

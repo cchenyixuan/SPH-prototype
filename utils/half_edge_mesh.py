@@ -46,6 +46,7 @@ class HalfEdgeFacet:
         self.half_edge = dict()
         self.index = index
         self.normal = None
+        self.area = None
 
     # def __hash__(self):
     #     return hash(self.index)
@@ -66,6 +67,16 @@ class HalfEdgeFacet:
             tmp = np.cross(vertex[1] - vertex[0], vertex[2] - vertex[1])
             self.normal = tmp / np.linalg.norm(tmp)
         return self.normal
+
+    def cal_area(self):
+        if self.area is None:
+            vertex = []
+            half_edge = next(iter(self.half_edge.values()))
+            vertex.append(half_edge.vertex)
+            vertex.append(half_edge.next.vertex)
+            vertex.append(half_edge.next.next.vertex)
+            self.area = 0.5 * np.linalg.norm(np.cross(vertex[1] - vertex[0], vertex[2] - vertex[1]))
+        return self.area
 
 
 class HalfEdgeMesh:

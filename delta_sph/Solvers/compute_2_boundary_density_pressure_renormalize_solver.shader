@@ -340,9 +340,9 @@ void ComputeParticleDensityRenormalize(){
                 kernel_value = wendland_3d(rij, h);
                 BoundaryParticle[particle_index-1][2].w += Particle[index_j-1][1].w*kernel_value;
                 // kernel_debug_value += particle_volume * kernel_value;
-                // kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
-                // renormalize += outerProduct(-xij, kernel_tmp)*particle_volume;
-                // density_gradient += (Particle[index_j-1][2].w-BoundaryParticle[particle_index-1][2].w)*particle_volume;
+                kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
+                renormalize += outerProduct(-xij, kernel_tmp)*particle_volume;
+                density_gradient += (Particle[index_j-1][2].w-BoundaryParticle[particle_index-1][2].w)*particle_volume*kernel_tmp;
                 // BoundaryParticle[particle_index-1][1].xyz += kernel_value*particle_volume*Particle[index_j-1][1].xyz;
 
             }
@@ -392,9 +392,9 @@ void ComputeParticleDensityRenormalize(){
                         kernel_value = wendland_3d(rij, h);
                         BoundaryParticle[particle_index-1][2].w += Particle[index_j-1][1].w*kernel_value;
                         // kernel_debug_value += particle_volume * kernel_value;
-                        // kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
-                        // renormalize += outerProduct(-xij, kernel_tmp)*particle_volume;
-                        // density_gradient += (Particle[index_j-1][2].w-BoundaryParticle[particle_index-1][2].w)*kernel_tmp*particle_volume;
+                        kernel_tmp = grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
+                        renormalize += outerProduct(-xij, kernel_tmp)*particle_volume;
+                        density_gradient += (Particle[index_j-1][2].w-BoundaryParticle[particle_index-1][2].w)*kernel_tmp*particle_volume;
                         // BoundaryParticle[particle_index-1][1].xyz += kernel_value*particle_volume*Particle[index_j-1][1].xyz;
                     }
                 }
@@ -433,11 +433,17 @@ void ComputeParticleDensityRenormalize(){
     //     density_gradient = renormalize*density_gradient;
     // }
     // BoundaryParticle[particle_index-1][1].xyz /= (kernel_debug_value+0.01*h2);
-    // BoundaryParticle[particle_index-1][2].xyz = density_gradient;
-    // BoundaryParticle[particle_index-1][2].w = 1000.0;
+    BoundaryParticle[particle_index-1][2].xyz = density_gradient;
 
 
-    BoundaryParticle[particle_index-1][3].w = eos_constant * (pow(BoundaryParticle[particle_index-1][2].w/rest_dense, 1) -1);
+
+    BoundaryParticle[particle_index-1][3].w = max(0.0, eos_constant * (pow(BoundaryParticle[particle_index-1][2].w/rest_dense, 7) -1));
+
+    atomicMax(StatusInt[15], int(BoundaryParticle[particle_index-1][2].w));
+    barrier();
+    atomicMin(StatusInt[16], int(BoundaryParticle[particle_index-1][2].w));
+    barrier();
+    BoundaryParticle[particle_index-1][2].w = 1000.0;
 }
 
 void main() {

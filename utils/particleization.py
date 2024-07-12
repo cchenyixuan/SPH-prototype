@@ -98,10 +98,11 @@ class Particleization:
             return False
 
 
+
 if __name__ == '__main__':
-    test_mesh = r"untitled.obj"
+    test_mesh = r"D:\ProgramFiles\PycharmProject\SPH-prototype\models\delta-sph-test\boundary.obj"
     v, fac = HalfEdgeMesh.load_obj(test_mesh)
-    particle_system = Particleization(HalfEdgeMesh(v, fac), 0.005)
+    particle_system = Particleization(HalfEdgeMesh(v, fac), 0.00125)
     particle_system.discretize_edges()
     print(particle_system.edge_particles)
     particle_system.discretize_facets()

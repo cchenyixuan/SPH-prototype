@@ -445,6 +445,7 @@ void EulerMethod(){
         // Particle[particle_index-1][2].w += delta_t*ParticleSubData[particle_index-1][3].x;
         // p = EOS(rho)
         // Particle[particle_index-1][3].w = max(eos_constant * (pow(Particle[particle_index-1][2].w/rest_dense, 7) -1), 0.0);
+        Particle[particle_index-1][2].z += 0.023*Particle[particle_index-1][2].y * delta_t;
         // calculate future position
         //   move =             P_velocity           *   dt   +      P_acceleration  *     dt/2
         vec3 move = Particle[particle_index-1][1].xyz*delta_t + Particle[particle_index-1][3].xyz*delta_t*delta_t/2;

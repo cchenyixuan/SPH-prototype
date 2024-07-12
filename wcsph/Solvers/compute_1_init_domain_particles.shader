@@ -4,7 +4,7 @@ layout(std430, binding=0) buffer Particles{
     // particle inside domain with x, y, z, voxel_id; vx, vy, vz, mass; wx, wy, wz, rho; ax, ay, az, P;
     // x , y , z , voxel_id
     // vx, vy, vz, mass
-    // wx, wy, wz, rho
+    // wx, dT, T , rho
     // ax, ay, az, pressure
     mat4x4 Particle[];
 };

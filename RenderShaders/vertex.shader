@@ -1,6 +1,7 @@
 #version 460 core
 
-layout(location=0) in int v_index; // vertex id
+// layout(location=0) in int v_index; // vertex id   TODO: disabled!!! replaced with gl_InstanceID
+layout(location=1) in vec3 sphere_pos; // sphere vertex position
 out vec4 v_color; // color output
 
 layout(std430, binding=0) buffer Particles{
@@ -100,7 +101,7 @@ uniform mat4 view;
 
 uniform int color_type;
 
-
+int v_index = gl_InstanceID;
 
 vec3 get_color_gradient(float ratio, float range){
     // ratio in range 0.9-1.1
@@ -124,8 +125,8 @@ vec3 get_color_gradient(float ratio, float range){
 }
 
 void main() {
-    if(Particle[v_index][0].w >= 0.0){
-        gl_Position = projection*view*vec4(Particle[v_index][0].xyz, 1.0); // set vertex position, w=1.0
+    if(Particle[v_index][0].w > 0.0){
+        gl_Position = projection*view*vec4(Particle[v_index][0].xyz + sphere_pos*r, 1.0); // set vertex position, w=1.0
         gl_PointSize = 4.0;
         // int voxel_id = int(round(Particle[v_index][0].w));
         // vec3 voxel_center = vec3(float(Voxel[(voxel_id-1)*voxel_memory_length+1])*h, float(Voxel[(voxel_id-1)*voxel_memory_length+2])*h, float(Voxel[(voxel_id-1)*voxel_memory_length+3])*h);
@@ -141,7 +142,7 @@ void main() {
                 v_color = vec4(abs(normalize(Particle[v_index][3].xyz)), 1.0);
                 break;
             case 2:  // pressure(density)
-                v_color = vec4(get_color_gradient(abs(Particle[v_index][3].w)/float(StatusInt[14]), 0.1).xyz, 1.0);
+                v_color = vec4(get_color_gradient(abs(Particle[v_index][2].w)/rest_dense, 0.01).xyz, 1.0);
                 break;
             case 3:  // N phase
                 if(ParticleSubData[v_index][3].w==1.0){v_color = vec4(0.0, 1.0, 0.0, 1.0);}
@@ -151,7 +152,7 @@ void main() {
                 else{v_color = vec4(1.0, 0.0, 0.0, 1.0);}
                 break;
             case 4:  // kernel value
-                v_color = vec4(get_color_gradient(ParticleSubData[v_index][0].w, 0.1).xyz, 1.0);
+                v_color = vec4(get_color_gradient(ParticleSubData[v_index][2].x, 0.1).xyz, 1.0);
                 break;
             case 5:  // d_rho/dt
                 v_color = vec4(get_color_gradient(abs(ParticleSubData[v_index][3].x)/float(StatusInt[2]), 0.1).xyz, 1.0);
@@ -162,17 +163,17 @@ void main() {
             case 7:  // curl
                 v_color = vec4(abs(ParticleSubData[v_index][1].xyz)/ParticleSubData[v_index][3].z, 1.0);
                 break;
-            case 8:  // wssd
-                v_color = vec4(ParticleSubData[v_index][3].x, -ParticleSubData[v_index][3].x, 0.0, 1.0);
+            case 8:  // temperature
+                v_color = vec4(get_color_gradient(abs(Particle[v_index][2].z)/30.0, 0.1).xyz, 0.7);
                 break;
-            case 9:  // length of curl
-                v_color = vec4(ParticleSubData[v_index][3].z/10.0, ParticleSubData[v_index][3].z/10.0, ParticleSubData[v_index][3].z/10.0, 1.0);
+            case 9:  // DT
+                v_color = vec4(Particle[v_index][2].y, -Particle[v_index][2].y, 0.0, 0.7);
                 break;
         }
     }
     else{
-        gl_Position = vec4(0.0);
-        v_color = vec4(0.0);
+        // this particle is not exist, pass
+        ;
     }
 
 }

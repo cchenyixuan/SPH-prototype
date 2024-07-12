@@ -326,18 +326,18 @@ bool containsNaN(mat3 matrix) {
 }
 
 void ComputeParticleDensity(){
-    // mat3 renormalize;
-    // renormalize[0] = ParticleSubData[2500000+particle_index-1][0].xyz;
-    // renormalize[1] = ParticleSubData[2500000+particle_index-1][1].xyz;
-    // renormalize[2] = ParticleSubData[2500000+particle_index-1][2].xyz;
-    // if(containsNaN(renormalize)){
-    //     renormalize[0] = vec3(1.0, 0.0, 0.0);
-    //     renormalize[1] = vec3(0.0, 1.0, 0.0);
-    //     renormalize[2] = vec3(0.0, 0.0, 1.0);
-    // }
-    // else{
-    //     ;
-    // }
+    mat3 renormalize;
+    renormalize[0] = ParticleSubData[2500000+particle_index-1][0].xyz;
+    renormalize[1] = ParticleSubData[2500000+particle_index-1][1].xyz;
+    renormalize[2] = ParticleSubData[2500000+particle_index-1][2].xyz;
+    if(containsNaN(renormalize)){
+        renormalize[0] = vec3(1.0, 0.0, 0.0);
+        renormalize[1] = vec3(0.0, 1.0, 0.0);
+        renormalize[2] = vec3(0.0, 0.0, 1.0);
+    }
+    else{
+        ;
+    }
     // DEBUG FOR KERNEL VALUE
     ParticleSubData[2500000+particle_index-1][3].x = 0.0;
     vec3 kernel_tmp = vec3(0.0);
@@ -434,6 +434,7 @@ void ComputeParticleDensity(){
     // delta_rho += 0.1*h*c0*psi;
     ParticleSubData[2500000+particle_index-1][3].x = delta_rho;
     BoundaryParticle[particle_index-1][2].w += delta_t*ParticleSubData[2500000+particle_index-1][3].x;
+
 
 
 
