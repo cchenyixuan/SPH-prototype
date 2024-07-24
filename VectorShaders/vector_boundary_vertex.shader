@@ -98,16 +98,13 @@ uniform mat4 view;
 void main() {
     g_out.v_pos = vec4(BoundaryParticle[v_index][0].xyz, 1.0); // set vertex position, w=1.0
     switch(vector_type){
-        case 0:  // velocity
-            g_out.v_color = vec4(0.0);
+        case 0:  // normal
+            g_out.v_color = vec4(BoundaryParticle[v_index][2].xyz*r, 1.0);
             break;
         case 1:  // acceleration
             g_out.v_color = vec4(0.0);
             break;
         // case2 show all boundary particle visibility
-        case 2:
-            g_out.v_color = vec4(BoundaryParticle[v_index][3].xyz/length(BoundaryParticle[v_index][3].xyz)*float(Status[7])/float(Status[8]), 1.0);
-            break;
         // new shader same as above, named boundary vector vertex shader, change particle to boundaryparticle
         // rewrite g_out.v_color with pressure and cirection at BP[id][3].xyzw
     }

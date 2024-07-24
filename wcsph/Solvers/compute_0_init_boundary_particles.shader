@@ -205,9 +205,9 @@ void AllocateBoundaryParticles(){
         vec3 voxel_pos = offset + vec3(float(get_voxel_data(i+1, 1))*h, float(get_voxel_data(i+1, 2))*h, float(get_voxel_data(i+1, 3))*h);
         // current particle inside current voxel (vx-2/h<=px<vx+2/h)
         if(
-            voxel_pos.x-h/2<=particle_pos.x && particle_pos.x<voxel_pos.x+h/2 &&
-            voxel_pos.y-h/2<=particle_pos.y && particle_pos.y<voxel_pos.y+h/2 &&
-            voxel_pos.z-h/2<=particle_pos.z && particle_pos.z<voxel_pos.z+h/2
+            voxel_pos.x-h/2<=particle_pos.x && particle_pos.x<=voxel_pos.x+h/2 &&
+            voxel_pos.y-h/2<=particle_pos.y && particle_pos.y<=voxel_pos.y+h/2 &&
+            voxel_pos.z-h/2<=particle_pos.z && particle_pos.z<=voxel_pos.z+h/2
             ){
                 // one particle found inside current voxel, get its slot id (start from 0) and add 1 to next slot id
                 int c = atomicAdd(VoxelParticleNumber[i], 1);

@@ -15,12 +15,12 @@ from utils.file_loader import load_obj
 class Demo:
     def __init__(self):
         # --case parameters--
-        self.H = 0.06
-        self.R = 0.0125
+        self.H = 0.006
+        self.R = 0.001
         self.c0 = 50.0  # about 10 times of max velocity in this system ensures the density variation less than 1%
-        self.DELTA_T = 0.1*self.R*2/self.c0   # check CFL condition
+        self.DELTA_T = 0.1 * self.H / self.c0   # check CFL condition
         self.save_frequency = int((1/self.DELTA_T)/100)  # approx. 0.01s
-        self.VISCOSITY = 0.0186
+        self.VISCOSITY = 0.00105
         self.COHESION = 0.0
         self.ADHESION = 0.0
         self.REST_DENSE = 1000.0
@@ -28,9 +28,9 @@ class Demo:
         self.PARTICLE_VOLUME = SolverCheck3D(self.H, self.R)()
 
         self.voxel_buffer_file = r"D:\ProgramFiles\PycharmProject\VoxelizationAlg\voxelization\buffer.npy"
-        self.voxel_origin_offset = [-0.027856, -0.328568, -0.37045]
-        self.domain_particle_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\models\delta-sph-test/domain.obj"
-        self.boundary_particle_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\models\delta-sph-test/boundary.obj"
+        self.voxel_origin_offset = [-0.1, -0.1, -0.1]
+        self.domain_particle_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\models\delta-sph-test/dm_cube.obj"
+        self.boundary_particle_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\models\delta-sph-test/bd_cube.obj"
 
         self.INLET1_file = r"D:\ProgramFiles\PycharmProject\SPH-prototype\models\delta-sph-test/inlet.obj"
         self.INLET1_velocity = [0.0, .0, 0.0]
@@ -88,7 +88,7 @@ class Demo:
         print(self.particle_number, self.boundary_particle_number, self.voxel_number)
         # global status buffer
         # [n_particle, ptr_last_particle, n_voxel, voxel_memory_length, voxel_block_size, voxel_group_size]
-        self.global_status = np.array((self.particle_number, self.particle_number, self.voxel_number, self.inlet1_particles.shape[0]//4, self.inlet2_particles.shape[0]//4, self.inlet3_particles.shape[0]//4, 0, 0, 0, 0, 0, 0), dtype=np.int32)
+        self.global_status = np.array((0, self.particle_number, self.voxel_number, self.inlet1_particles.shape[0]//4, self.inlet2_particles.shape[0]//4, self.inlet3_particles.shape[0]//4, 0, 0, 0, 0, 0, 0), dtype=np.int32)
         self.global_status_float = np.array((self.H, self.R, self.DELTA_T, self.VISCOSITY, self.COHESION, self.ADHESION, *self.offset, 0.0, 0.0, 0.0), dtype=np.float32)
 
         # all shaders are filled with certain parameters and saved in ./runtime
@@ -216,7 +216,7 @@ class Demo:
         self.sphere_vao = glGenVertexArrays(1)
         glBindVertexArray(self.sphere_vao)
         # use sphere_vbo for instancing
-        self.sphere_buffer, self.sphere_indices = load_obj(r"Components/sphere.obj")
+        self.sphere_buffer, self.sphere_indices, _, _, _ = load_obj(r"Components/sphere.obj")
         self.sphere_vbo = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.sphere_vbo)
         glBufferData(GL_ARRAY_BUFFER, self.sphere_buffer.nbytes, self.sphere_buffer, GL_STATIC_DRAW)
@@ -289,6 +289,18 @@ class Demo:
         self.render_shader_vector_vector_type_loc = glGetUniformLocation(self.render_shader_vector, "vector_type")
 
         glUniform1i(self.render_shader_vector_vector_type_loc, 0)
+
+        # render shader vector
+        self.render_shader_boundary_vector = compileProgram(
+            compileShader(open("./runtime/vector_boundary_vertex.shader", "rb"), GL_VERTEX_SHADER),
+            compileShader(open("./runtime/vector_geometry.shader", "rb"), GL_GEOMETRY_SHADER),
+            compileShader(open("./runtime/vector_fragment.shader", "rb"), GL_FRAGMENT_SHADER))
+        glUseProgram(self.render_shader_boundary_vector)
+        self.boundary_vector_projection_loc = glGetUniformLocation(self.render_shader_boundary_vector, "projection")
+        self.boundary_vector_view_loc = glGetUniformLocation(self.render_shader_boundary_vector, "view")
+        self.render_shader_boundary_vector_vector_type_loc = glGetUniformLocation(self.render_shader_boundary_vector, "vector_type")
+
+        glUniform1i(self.render_shader_boundary_vector_vector_type_loc, 0)
 
 
 
@@ -424,6 +436,9 @@ class Demo:
             glUseProgram(self.render_shader_vector)
             glLineWidth(1)
             glDrawArrays(GL_POINTS, 0, self.particle_number+1000)
+
+            glUseProgram(self.render_shader_boundary_vector)
+            glDrawArrays(GL_POINTS, 0, self.boundary_particle_number + 1000)
 
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
         glBindVertexArray(self.sphere_vao)

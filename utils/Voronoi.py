@@ -22,7 +22,8 @@ class VoronoiNode:
 
 
 class Voronoi:
-    def __init__(self, radius):
+    def __init__(self, radius: float, half_edge_mesh: HalfEdgeMesh | None = None):
+        self.mesh = half_edge_mesh
         self.radius = radius
         self.pixel_factor = 0.25
         self.available_lattices = None
@@ -62,7 +63,7 @@ class Voronoi:
 
         # we randomly generate particles inside the lattices if no seeds
         if seeds is None:
-            voronoi_node_count = int(facet.cal_area() // (np.pi * self.radius**2) + 1)
+            voronoi_node_count = int(facet.cal_area() // (np.pi * self.radius ** 2) + 1)
             voronoi_node_seeds = random.sample(sorted(facet_lattices), voronoi_node_count)
             voronoi_nodes = [VoronoiNode(position, index) for index, position in enumerate(voronoi_node_seeds)]
             available_lattices = {lattice: -1 for lattice in facet_lattices}
@@ -78,7 +79,8 @@ class Voronoi:
         # jump-flood until all lattices are filled
         lattices = np.array(tuple(facet_lattices), dtype=np.int32)
         step_size = 1
-        while step_size < int((max(np.max(lattices[:, 0]) - np.min(lattices[:, 0]), np.max(lattices[:, 1]) - np.min(lattices[:, 1])) + 0) // 2 + 1):
+        while step_size < int((max(np.max(lattices[:, 0]) - np.min(lattices[:, 0]),
+                                   np.max(lattices[:, 1]) - np.min(lattices[:, 1])) + 0) // 2 + 1):
             for voronoi_node in voronoi_nodes:
                 # expand all territory in 8 directions
                 for territory in [item for item in voronoi_node.territory]:
@@ -99,7 +101,9 @@ class Voronoi:
                                 voronoi_node.count += 1
                             elif available_lattices[key] == voronoi_node.index:
                                 pass
-                            elif np.linalg.norm(voronoi_nodes[available_lattices[key]].numpy - np.array(key, dtype=np.int32)) < np.linalg.norm(voronoi_node.numpy - np.array(key, dtype=np.int32)):
+                            elif np.linalg.norm(voronoi_nodes[available_lattices[key]].numpy - np.array(key,
+                                                                                                        dtype=np.int32)) < np.linalg.norm(
+                                    voronoi_node.numpy - np.array(key, dtype=np.int32)):
                                 pass
                             else:
                                 voronoi_nodes[available_lattices[key]].territory.remove(key)
@@ -115,16 +119,17 @@ class Voronoi:
 
         # what else?
         print("painting")
-        color_bar = {i: tuple(float(item) for item in [abs(np.sin(10 * i)), abs(np.cos(i)), abs(np.sin(2 * i)), ])
-                     for i in
-                     range(10000)}
+        color_bar = {i: tuple(float(item) for item in [abs(np.sin(10 * i)), abs(np.cos(i)), abs(np.sin(2 * i)), ]) for i
+                     in range(10000)}
         color_bar[-1] = tuple([1.0, 0.0, 0.0])
         import matplotlib.pyplot as plt
         for point in available_lattices.keys():
-            plt.scatter(0.3333 + point[0] * self.radius*self.pixel_factor, 0.3333 + point[1] * self.radius*self.pixel_factor,
+            plt.scatter(0.3333 + point[0] * self.radius * self.pixel_factor,
+                        0.3333 + point[1] * self.radius * self.pixel_factor,
                         color=tuple(float(i) for i in color_bar[available_lattices[point]]), s=10)
         for point in voronoi_nodes:
-            plt.scatter(0.3333 + point.position[0] * self.radius*self.pixel_factor, 0.3333 + point.position[1] * self.radius*self.pixel_factor, color=(0.0, 0.0, 0.0), s=10)
+            plt.scatter(0.3333 + point.position[0] * self.radius * self.pixel_factor,
+                        0.3333 + point.position[1] * self.radius * self.pixel_factor, color=(0.0, 0.0, 0.0), s=10)
 
         plt.show()
 
@@ -136,21 +141,24 @@ class Voronoi:
         :return:
         """
         for voronoi_node in voronoi_nodes:
-            center = np.sum(np.array([pos for pos in voronoi_node.territory], dtype=np.float32), axis=0) / voronoi_node.count
+            center = np.sum(np.array([pos for pos in voronoi_node.territory], dtype=np.float32),
+                            axis=0) / voronoi_node.count
             direction = center - voronoi_node.numpy
-            voronoi_node.move(tuple([round(voronoi_node.numpy[0]+direction[0]), round(voronoi_node.numpy[1]+direction[1])]))
+            voronoi_node.move(
+                tuple([round(voronoi_node.numpy[0] + direction[0]), round(voronoi_node.numpy[1] + direction[1])]))
         return voronoi_nodes
 
     def dynamic_relaxation(self, voronoi_nodes, available_lattices=None):
         for voronoi_node in voronoi_nodes:
-            center = np.sum(np.array([pos for pos in voronoi_node.territory], dtype=np.float32), axis=0) / voronoi_node.count
+            center = np.sum(np.array([pos for pos in voronoi_node.territory], dtype=np.float32),
+                            axis=0) / voronoi_node.count
             direction = center - voronoi_node.numpy
             # if voronoi_node.count > ...:
             #     voronoi_node.move(tuple([round(voronoi_node.numpy[0]+direction[0]), round(voronoi_node.numpy[1]+direction[1])]))
             # else:
             neighborhood = set()
-            for i in range(round(2//self.pixel_factor)):
-                for j in range(round(2//self.pixel_factor)):
+            for i in range(round(2 // self.pixel_factor)):
+                for j in range(round(2 // self.pixel_factor)):
                     neighborhood.add(tuple((voronoi_node.position[0] + i, voronoi_node.position[1] + j)))
                     neighborhood.add(tuple((voronoi_node.position[0] + i, voronoi_node.position[1] - j)))
                     neighborhood.add(tuple((voronoi_node.position[0] - i, voronoi_node.position[1] + j)))
@@ -160,16 +168,17 @@ class Voronoi:
                 if node.index != voronoi_node.index:
                     if node.position in neighborhood:
                         difference = (voronoi_node.numpy - node.numpy)
-                        if np.linalg.norm(difference) < round(2//self.pixel_factor):
-                            resistance += difference * (1-np.linalg.norm(difference)/round(2//self.pixel_factor))
-            destination = tuple([round(voronoi_node.numpy[0] + direction[0] + resistance[0]), round(voronoi_node.numpy[1] + direction[1] + resistance[1])])
+                        if np.linalg.norm(difference) < round(2 // self.pixel_factor):
+                            resistance += difference * (1 - np.linalg.norm(difference) / round(2 // self.pixel_factor))
+            destination = tuple([round(voronoi_node.numpy[0] + direction[0] + resistance[0]),
+                                 round(voronoi_node.numpy[1] + direction[1] + resistance[1])])
             if destination in available_lattices:
                 voronoi_node.move(destination)
             else:
-                voronoi_node.move(tuple([round(voronoi_node.numpy[0]+direction[0]), round(voronoi_node.numpy[1]+direction[1])]))
+                voronoi_node.move(
+                    tuple([round(voronoi_node.numpy[0] + direction[0]), round(voronoi_node.numpy[1] + direction[1])]))
 
         return voronoi_nodes
-
 
     @staticmethod
     def point_inside_facet(p1, p2, p3, point: np.ndarray) -> bool:
@@ -197,7 +206,8 @@ if __name__ == '__main__':
     print("done")
     for i in range(50):
         voronoi_nodes = voronoi.dynamic_relaxation(voronoi_nodes, available_lattices)
-        voronoi_nodes, available_lattices = voronoi.generation(list(half_edge_mesh.half_edge_facets.values())[0], seeds=voronoi_nodes)
+        voronoi_nodes, available_lattices = voronoi.generation(list(half_edge_mesh.half_edge_facets.values())[0],
+                                                               seeds=voronoi_nodes)
         print("done")
     # color_bar = {i: tuple(float(item) for item in [abs(np.sin(10*i)), abs(np.cos(i)), abs(np.sin(2 * i)), ]) for i in
     #              range(10000)}
@@ -207,6 +217,6 @@ if __name__ == '__main__':
     #     plt.scatter(0.3333+point[0]*radius*0.5, 0.3333+point[1]*radius*0.5, color=tuple(float(i) for i in color_bar[available_lattices[point]]))
     # for point in voronoi_nodes:
 #
-    #     plt.scatter(0.3333+point.position[0]*radius*0.5, 0.3333+point.position[1]*radius*0.5, color=(0.0, 0.0, 0.0))
+#     plt.scatter(0.3333+point.position[0]*radius*0.5, 0.3333+point.position[1]*radius*0.5, color=(0.0, 0.0, 0.0))
 #
-    # plt.show()
+# plt.show()

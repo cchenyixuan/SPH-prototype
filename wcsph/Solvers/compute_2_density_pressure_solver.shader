@@ -214,6 +214,7 @@ float wendland_3d(float rij, float h){
 vec3 grad_wendland_3d(float x, float y, float z, float rij, float h){
     float q = rij/h;
     if (q > 1){return vec3(0.0);}
+    if (q == 0.0){return vec3(0.0);}
     float w_prime = Coeff_Wendland_3d / h * (-56/3) * q * (1+5*q) * pow(1-q, 5);
     return w_prime * vec3(x / rij, y / rij, z / rij);
 }
@@ -329,6 +330,7 @@ void ComputeParticleDensityPressure(){
     // DEBUG FOR KERNEL VALUE
     float kernel_value = 0.0;
     float kernel_tmp = 0.0;
+    vec3 normal_vector = vec3(0.0);
     // position of current particle focused
     vec3 particle_pos = Particle[particle_index-1][0].xyz;
     // delete its density and pressure last time, optional
@@ -349,6 +351,7 @@ void ComputeParticleDensityPressure(){
         else if (index_j>0){
             // distance rij
             float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
+            vec3 xij = particle_pos - Particle[index_j-1][0].xyz;
             // distance less than h
             if (rij<h){
                 kernel_tmp = wendland_3d(rij, h);
@@ -356,23 +359,25 @@ void ComputeParticleDensityPressure(){
                 //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
                 Particle[particle_index-1][2].w += Particle[index_j-1][1].w * kernel_tmp;
                 kernel_value += particle_volume*kernel_tmp;
+                // normal
+                normal_vector += h * particle_volume * grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
             }
         }
         // P_j is a boundary particle
-        else if (index_j<0){
-            // reverse index_j
-            index_j = -index_j;
-            // distance rij
-            float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
-            // distance less than h
-            if (rij<2*r){
-                kernel_tmp = wendland_3d_d(rij, 2*r);
-                // add density to location (2, 2) of its mat4x4
-                //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
-                density_from_boundary += BoundaryParticle[index_j-1][1].w * kernel_tmp;
-                // kernel_value += particle_volume*kernel_tmp;
-            }
-        }
+        // else if (index_j<0){
+        //     // reverse index_j
+        //     index_j = -index_j;
+        //     // distance rij
+        //     float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
+        //     // distance less than h
+        //     if (rij<2*r){
+        //         kernel_tmp = wendland_3d_d(rij, 2*r);
+        //         // add density to location (2, 2) of its mat4x4
+        //         //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
+        //         density_from_boundary += BoundaryParticle[index_j-1][1].w * kernel_tmp;
+        //         // kernel_value += particle_volume*kernel_tmp;
+        //     }
+        // }
 
     }
 
@@ -391,6 +396,7 @@ void ComputeParticleDensityPressure(){
                 else if (index_j>0){
                     // distance rij
                     float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
+                    vec3 xij = particle_pos - Particle[index_j-1][0].xyz;
                     // distance less than h
                     if (rij<h){
                         kernel_tmp = wendland_3d(rij, h);
@@ -398,22 +404,24 @@ void ComputeParticleDensityPressure(){
                         //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
                         Particle[particle_index-1][2].w += Particle[index_j-1][1].w * kernel_tmp;
                         kernel_value += particle_volume*kernel_tmp;
+                        // normal
+                        normal_vector += h * particle_volume * grad_wendland_3d(xij.x, xij.y, xij.z, rij, h);
                     }
                 }
-                else if (index_j<0){
-                    // reverse index_j
-                    index_j = -index_j;
-                    // distance rij
-                    float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
-                    // distance less than h
-                    if (rij<2*r){
-                        kernel_tmp = wendland_3d_d(rij, 2*r);
-                        // add density to location (2, 2) of its mat4x4
-                        //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
-                        density_from_boundary += BoundaryParticle[index_j-1][1].w * kernel_tmp;
-                        // kernel_value += particle_volume*kernel_tmp;
-                    }
-                }
+                // else if (index_j<0){
+                //     // reverse index_j
+                //     index_j = -index_j;
+                //     // distance rij
+                //     float rij = distance(particle_pos, BoundaryParticle[index_j-1][0].xyz);
+                //     // distance less than h
+                //     if (rij<2*r){
+                //         kernel_tmp = wendland_3d_d(rij, 2*r);
+                //         // add density to location (2, 2) of its mat4x4
+                //         //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
+                //         density_from_boundary += BoundaryParticle[index_j-1][1].w * kernel_tmp;
+                //         // kernel_value += particle_volume*kernel_tmp;
+                //     }
+                // }
 
             }
 
@@ -427,8 +435,9 @@ void ComputeParticleDensityPressure(){
     if(kernel_value<1.0){Particle[particle_index-1][2].w /= kernel_value;}
     Particle[particle_index-1][2].w += density_from_boundary;
 
-    Particle[particle_index-1][3].w = max(eos_constant * (pow(Particle[particle_index-1][2].w/rest_dense, 1) -1), 0.0);
+    Particle[particle_index-1][3].w = max(eos_constant * (pow(Particle[particle_index-1][2].w/rest_dense, 1) -1) + 101325.0, 0.0);
     ParticleSubData[particle_index-1][2].x = kernel_value;
+    ParticleSubData[particle_index-1][0].xyz = normal_vector;
 }
 
 void main() {

@@ -126,7 +126,7 @@ vec3 get_color_gradient(float ratio, float range){
 
 void main() {
     if(Particle[v_index][0].w > 0.0){
-        gl_Position = projection*view*vec4(Particle[v_index][0].xyz + sphere_pos*r, 1.0); // set vertex position, w=1.0
+        gl_Position = projection*view*vec4(Particle[v_index][0].xyz + sphere_pos * r, 1.0); // set vertex position, w=1.0
         gl_PointSize = 4.0;
         // int voxel_id = int(round(Particle[v_index][0].w));
         // vec3 voxel_center = vec3(float(Voxel[(voxel_id-1)*voxel_memory_length+1])*h, float(Voxel[(voxel_id-1)*voxel_memory_length+2])*h, float(Voxel[(voxel_id-1)*voxel_memory_length+3])*h);
@@ -142,7 +142,7 @@ void main() {
                 v_color = vec4(abs(normalize(Particle[v_index][3].xyz)), 1.0);
                 break;
             case 2:  // pressure(density)
-                v_color = vec4(get_color_gradient(abs(Particle[v_index][2].w)/rest_dense, 0.01).xyz, 1.0);
+                v_color = vec4(get_color_gradient(abs(Particle[v_index][2].w)/rest_dense, 0.1).xyz, 1.0);
                 break;
             case 3:  // N phase
                 if(ParticleSubData[v_index][3].w==1.0){v_color = vec4(0.0, 1.0, 0.0, 1.0);}
@@ -154,8 +154,8 @@ void main() {
             case 4:  // kernel value
                 v_color = vec4(get_color_gradient(ParticleSubData[v_index][2].x, 0.1).xyz, 1.0);
                 break;
-            case 5:  // d_rho/dt
-                v_color = vec4(get_color_gradient(abs(ParticleSubData[v_index][3].x)/float(StatusInt[2]), 0.1).xyz, 1.0);
+            case 5:  // |curl|
+                v_color = vec4(get_color_gradient(ParticleSubData[v_index][3].z/10.0, 0.6).xyz, 1.0);
                 break;
             case 6:  // rho
                 v_color = vec4(get_color_gradient(Particle[v_index][2].w/1000.0, 0.1).xyz, 1.0);
@@ -164,7 +164,7 @@ void main() {
                 v_color = vec4(abs(ParticleSubData[v_index][1].xyz)/ParticleSubData[v_index][3].z, 1.0);
                 break;
             case 8:  // temperature
-                v_color = vec4(get_color_gradient(abs(Particle[v_index][2].z)/30.0, 0.1).xyz, 0.7);
+                v_color = vec4(get_color_gradient(abs(Particle[v_index][2].z)/33.0, 0.1).xyz, 0.7);
                 break;
             case 9:  // DT
                 v_color = vec4(Particle[v_index][2].y, -Particle[v_index][2].y, 0.0, 0.7);

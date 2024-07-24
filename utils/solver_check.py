@@ -58,11 +58,11 @@ class SolverCheck3D:
             "grad_wendland_3d_c": self.grad_wendland_3d_c,
         }
         kernel = kernels[kernel_name]
-        ans, count = np.zeros((3,), dtype=np.longfloat), 0
+        ans, count = np.zeros((3,), dtype=np.longdouble), 0
         for particle in self.buffer:
             kernel_tmp = kernel(*particle[:3], np.linalg.norm(particle[:3]), self.H)
             ans += kernel_tmp
-            count += bool(np.linalg.norm(kernel_tmp))
+            count += 1 if np.linalg.norm(particle[:3]) <= self.H else 0
         print(
             f"Kernel: {kernel_name}, Kernel Sum: {ans}, Particle Count: {count}, Kernel Integral: {ans * self.particle_volume}")
         return ans
@@ -94,67 +94,67 @@ class SolverCheck3D:
     def grad_wendland_3d_c(x, y, z, rij, h):
         q = rij / h
         if q > 1:
-            return np.array([0.0, 0.0, 0.0], dtype=np.longfloat)
+            return np.array([0.0, 0.0, 0.0], dtype=np.longdouble)
         if q == 0.0:
-            return np.array([0.0, 0.0, 0.0], dtype=np.longfloat)
+            return np.array([0.0, 0.0, 0.0], dtype=np.longdouble)
         w_prime = 495 / (32 * np.pi * h ** 3) / h * (-56 / 3) * q * (1 + 5 * q) * pow(1 - q, 5)
-        return w_prime * np.array([x / rij, y / rij, z / rij], dtype=np.longfloat)
+        return w_prime * np.array([x / rij, y / rij, z / rij], dtype=np.longdouble)
 
     def regular_distribution(self):
-        origin = np.array([0.0, 0.0, 0.0], dtype=np.longfloat)
+        origin = np.array([0.0, 0.0, 0.0], dtype=np.longdouble)
 
         shape_x = int(5 + 2 * ((self.H - self.R) // (2 * self.R)))
-        row = np.zeros((shape_x, 3), dtype=np.longfloat)
-        offset_x = np.array([self.R * 2, 0.0, 0.0], dtype=np.longfloat)
+        row = np.zeros((shape_x, 3), dtype=np.longdouble)
+        offset_x = np.array([self.R * 2, 0.0, 0.0], dtype=np.longdouble)
         row[0] = origin
         for i in range(1, shape_x):
             row[i] = origin + offset_x * np.array([np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1), 0.0, 0.0],
-                                                  dtype=np.longfloat)
+                                                  dtype=np.longdouble)
 
         shape_y = int(5 + 2 * ((self.H - self.R) // (np.sqrt(3) * self.R)))
-        layer = np.zeros((shape_y, shape_x, 3), dtype=np.longfloat)
-        offset_y = np.array([self.R, np.sqrt(3) * self.R, 0.0], dtype=np.longfloat)
+        layer = np.zeros((shape_y, shape_x, 3), dtype=np.longdouble)
+        offset_y = np.array([self.R, np.sqrt(3) * self.R, 0.0], dtype=np.longdouble)
         layer[0] = row
         for i in range(1, shape_y):
             layer[i] = row + offset_y * np.array([bool((i % 4 % 3)), np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1), 0.0],
-                                                 dtype=np.longfloat)
+                                                 dtype=np.longdouble)
 
         shape_z = int(5 + 2 * ((self.H - self.R) // (2 * np.sqrt(6) / 3 * self.R)))
-        buffer = np.zeros((shape_z, shape_y, shape_x, 3), dtype=np.longfloat)
-        offset_z = np.array([0.0, 2 / np.sqrt(3) * self.R, 2 * np.sqrt(6) / 3 * self.R], dtype=np.longfloat)
+        buffer = np.zeros((shape_z, shape_y, shape_x, 3), dtype=np.longdouble)
+        offset_z = np.array([0.0, 2 / np.sqrt(3) * self.R, 2 * np.sqrt(6) / 3 * self.R], dtype=np.longdouble)
         buffer[0] = layer
         for i in range(1, shape_z):
             buffer[i] = layer + offset_z * np.array([0.0, bool((i % 4 % 3)), np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1)],
-                                                    dtype=np.longfloat)
+                                                    dtype=np.longdouble)
 
         return buffer.reshape((-1, 3))
 
     def regular_distribution_lattice(self):
-        origin = np.array([0.0, 0.0, 0.0], dtype=np.longfloat)
+        origin = np.array([0.0, 0.0, 0.0], dtype=np.longdouble)
 
         shape_x = int(5 + 2 * ((self.H - self.R) // (2 * self.R)))
-        row = np.zeros((shape_x, 3), dtype=np.longfloat)
-        offset_x = np.array([self.R * 2, 0.0, 0.0], dtype=np.longfloat)
+        row = np.zeros((shape_x, 3), dtype=np.longdouble)
+        offset_x = np.array([self.R * 2, 0.0, 0.0], dtype=np.longdouble)
         row[0] = origin
         for i in range(1, shape_x):
             row[i] = origin + offset_x * np.array([np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1), 0.0, 0.0],
-                                                  dtype=np.longfloat)
+                                                  dtype=np.longdouble)
 
         shape_y = int(5 + 2 * ((self.H - self.R) // (np.sqrt(3) * self.R)))
-        layer = np.zeros((shape_y, shape_x, 3), dtype=np.longfloat)
-        offset_y = np.array([0.0, self.R * 2, 0.0], dtype=np.longfloat)
+        layer = np.zeros((shape_y, shape_x, 3), dtype=np.longdouble)
+        offset_y = np.array([0.0, self.R * 2, 0.0], dtype=np.longdouble)
         layer[0] = row
         for i in range(1, shape_y):
             layer[i] = row + offset_y * np.array([bool((i % 4 % 3)), np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1), 0.0],
-                                                 dtype=np.longfloat)
+                                                 dtype=np.longdouble)
 
         shape_z = int(5 + 2 * ((self.H - self.R) // (2 * np.sqrt(6) / 3 * self.R)))
-        buffer = np.zeros((shape_z, shape_y, shape_x, 3), dtype=np.longfloat)
-        offset_z = np.array([0.0, 0.0, 2 * self.R], dtype=np.longfloat)
+        buffer = np.zeros((shape_z, shape_y, shape_x, 3), dtype=np.longdouble)
+        offset_z = np.array([0.0, 0.0, 2 * self.R], dtype=np.longdouble)
         buffer[0] = layer
         for i in range(1, shape_z):
             buffer[i] = layer + offset_z * np.array([0.0, bool((i % 4 % 3)), np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1)],
-                                                    dtype=np.longfloat)
+                                                    dtype=np.longdouble)
 
         return buffer.reshape((-1, 3))
 
@@ -219,7 +219,7 @@ class SolverCheck2D:
             "grad_spiky_2d": self.grad_spiky_2d,
         }
         kernel = kernels[kernel_name]
-        ans, count = np.zeros((2,), dtype=np.longfloat), 0
+        ans, count = np.zeros((2,), dtype=np.longdouble), 0
         for particle in self.buffer:
             rij = np.linalg.norm(particle[:2])
             if rij != 0.0:
@@ -237,7 +237,7 @@ class SolverCheck2D:
             "grad_spiky_2d": self.grad_spiky_2d,
         }
         kernel = kernels[kernel_name]
-        ans, count = np.zeros((2, 2), dtype=np.longfloat), 0
+        ans, count = np.zeros((2, 2), dtype=np.longdouble), 0
         for particle in self.buffer:
             rij = np.linalg.norm(particle[:2])
             if rij != 0.0:
@@ -278,12 +278,12 @@ class SolverCheck2D:
     @staticmethod
     def grad_spiky_2d(x, y, rij, h):
         if rij == 0:
-            return np.array([0.0, 0.0], dtype=np.longfloat)
+            return np.array([0.0, 0.0], dtype=np.longdouble)
         if rij >= h:
-            return np.array([0.0, 0.0], dtype=np.longfloat)
+            return np.array([0.0, 0.0], dtype=np.longdouble)
         else:
             w_prime = - 3 * 10 / (np.pi * pow(h, 5)) * pow((h - rij), 2)
-            return np.array([w_prime * x / rij, w_prime * y / rij], dtype=np.longfloat)
+            return np.array([w_prime * x / rij, w_prime * y / rij], dtype=np.longdouble)
 
     @staticmethod
     def wendland_2d(rij, h):
@@ -295,58 +295,58 @@ class SolverCheck2D:
     @staticmethod
     def grad_wendland_2d(x, y, rij, h):
         if rij == 0.0:
-            return np.zeros((2,), dtype=np.longfloat)
+            return np.zeros((2,), dtype=np.longdouble)
         if rij > h:
-            return np.zeros((2,), dtype=np.longfloat)
+            return np.zeros((2,), dtype=np.longdouble)
         coefficient = 9 / np.pi / h ** 2
-        return coefficient * (-56 / 3) * (1 / h / h) * (1 - rij / h) ** 5 * (5 * rij / h + 1) * np.array([x, y], dtype=np.longfloat)
+        return coefficient * (-56 / 3) * (1 / h / h) * (1 - rij / h) ** 5 * (5 * rij / h + 1) * np.array([x, y], dtype=np.longdouble)
 
     def star_distribution(self):
-        origin = np.array([0.0, 0.0, 0.0], dtype=np.longfloat)
+        origin = np.array([0.0, 0.0, 0.0], dtype=np.longdouble)
         shape_x = int(5 + 2 * ((self.H - self.R) // (2 * self.R)))
-        row = np.zeros((shape_x, 3), dtype=np.longfloat)
-        offset_x = np.array([self.R * 2, 0.0, 0.0], dtype=np.longfloat)
+        row = np.zeros((shape_x, 3), dtype=np.longdouble)
+        offset_x = np.array([self.R * 2, 0.0, 0.0], dtype=np.longdouble)
         row[0] = origin
         for i in range(1, shape_x):
             row[i] = origin + offset_x * np.array([np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1), 0.0, 0.0],
-                                                  dtype=np.longfloat)
+                                                  dtype=np.longdouble)
         shape_y = int(5 + 2 * ((self.H - self.R) // (2 * self.R)))
-        layer = np.zeros((shape_y, shape_x, 3), dtype=np.longfloat)
-        offset_y = np.array([self.R, np.sqrt(3) * self.R, 0.0], dtype=np.longfloat)
+        layer = np.zeros((shape_y, shape_x, 3), dtype=np.longdouble)
+        offset_y = np.array([self.R, np.sqrt(3) * self.R, 0.0], dtype=np.longdouble)
         layer[0] = row
         for i in range(1, shape_y):
             layer[i] = row + offset_y * np.array(
                 [np.sign((i - 1) % 4 - 1.5) * (((i - 1) // 2 + 1) % 2), np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1), 0.0],
-                dtype=np.longfloat)
+                dtype=np.longdouble)
 
         return layer.reshape((-1, 3))
 
     def regular_distribution(self):
-        origin = np.array([0.0, 0.0, 0.0], dtype=np.longfloat)
+        origin = np.array([0.0, 0.0, 0.0], dtype=np.longdouble)
 
         shape_x = int(5 + 2 * ((self.H - self.R) // (2 * self.R)))
-        row = np.zeros((shape_x, 3), dtype=np.longfloat)
-        offset_x = np.array([self.R * 2, 0.0, 0.0], dtype=np.longfloat)
+        row = np.zeros((shape_x, 3), dtype=np.longdouble)
+        offset_x = np.array([self.R * 2, 0.0, 0.0], dtype=np.longdouble)
         row[0] = origin
         for i in range(1, shape_x):
             row[i] = origin + offset_x * np.array([np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1), 0.0, 0.0],
-                                                  dtype=np.longfloat)
+                                                  dtype=np.longdouble)
 
         shape_y = int(5 + 2 * ((self.H - self.R) // (2 * self.R)))
-        layer = np.zeros((shape_y, shape_x, 3), dtype=np.longfloat)
-        offset_y = np.array([self.R, 2 * self.R, 0.0], dtype=np.longfloat)
+        layer = np.zeros((shape_y, shape_x, 3), dtype=np.longdouble)
+        offset_y = np.array([self.R, 2 * self.R, 0.0], dtype=np.longdouble)
         layer[0] = row
         for i in range(1, shape_y):
             layer[i] = row + offset_y * np.array([0.0, np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1), 0.0],
-                                                 dtype=np.longfloat)
+                                                 dtype=np.longdouble)
 
         shape_z = 1  # int(5 + 2 * ((self.H - self.R) // (2 * np.sqrt(6) / 3 * self.R)))
-        buffer = np.zeros((shape_z, shape_y, shape_x, 3), dtype=np.longfloat)
-        offset_z = np.array([0.0, 2 / np.sqrt(3) * self.R, 2 * np.sqrt(6) / 3 * self.R], dtype=np.longfloat)
+        buffer = np.zeros((shape_z, shape_y, shape_x, 3), dtype=np.longdouble)
+        offset_z = np.array([0.0, 2 / np.sqrt(3) * self.R, 2 * np.sqrt(6) / 3 * self.R], dtype=np.longdouble)
         buffer[0] = layer
         # for i in range(1, shape_z):
         #     buffer[i] = layer + offset_z * np.array([0.0, bool((i % 4 % 3)), np.sign(i % 2 - 0.5) * ((i - 1) // 2 + 1)],
-        #                                             dtype=np.longfloat)
+        #                                             dtype=np.longdouble)
 
         return buffer.reshape((-1, 3))
 

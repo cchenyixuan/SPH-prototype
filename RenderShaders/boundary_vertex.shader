@@ -91,7 +91,7 @@ const int VOXEL_GROUP_SIZE = 300000;
 int v_index = gl_InstanceID;
 
 void main() {
-    gl_Position = projection*view*vec4(BoundaryParticle[v_index][0].xyz + r*sphere_pos, 1.0); // set vertex position, w=1.0
+    gl_Position = projection*view*vec4(BoundaryParticle[v_index][0].xyz + sphere_pos * rest_dense/BoundaryParticle[v_index][2].w * r, 1.0); // set vertex position, w=1.0
     v_color = vec4(0.5, 0.5, 0.5, 0.3);
     if (abs(BoundaryParticle[v_index][3].x) + abs(BoundaryParticle[v_index][3].y) + abs(BoundaryParticle[v_index][3].z) > 0.0000001){
         v_color = vec4(abs(BoundaryParticle[v_index][3].xyz)/length(BoundaryParticle[v_index][3].xyz), 0.3);

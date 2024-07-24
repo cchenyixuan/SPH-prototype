@@ -1,5 +1,6 @@
 import numpy as np
 from SpaceDivision import CreateVoxels
+from utils.file_loader import load_obj
 
 
 class Project:
@@ -10,8 +11,8 @@ class Project:
         self.rho = rho
         self.particle_mass = self.rho * self.volume
         self.voxels, self.offset = np.load(voxel), np.array(offset, dtype=np.float32)
-        self.particles = self.load_domain(self.load_file(domain))[:4000]
-        self.boundary_particles = self.load_boundary(self.load_file(boundary))
+        self.particles = self.load_domain(self.load_file(domain))
+        self.boundary_particles = self.load_boundary(load_obj(boundary)[4])
         self.inlet_particles = [self.load_inlet(self.load_file(inlets[0][0]), np.array(inlets[0][1], dtype=np.float32)),
                                 self.load_inlet(self.load_file(inlets[1][0]), np.array(inlets[1][1], dtype=np.float32)),
                                 self.load_inlet(self.load_file(inlets[2][0]), np.array(inlets[2][1], dtype=np.float32))]
@@ -56,8 +57,7 @@ class Project:
             output[step*4+2][3] = self.rho
             output[step*4+3][3] = 0.0  # initial pressure
             output[step * 4+1][:3] = np.array((0.0, 0.0, 0.0), dtype=np.float32)  # initial velocity
-            output[step * 4][1] -= 0.8
-            output[step * 4 + 2][2] = 33.0  # temperature
+            output[step * 4 + 2][2] = 33.0 + np.random.random()*5  # temperature
         # output2 = np.zeros((particles.shape[0] * 4, 4), dtype=np.float32)
         # for step, vertex in enumerate(particles):
         #     output2[step * 4][:3] = vertex + np.array((0.1, 0.0, 0.0), dtype=np.float32)
@@ -71,7 +71,9 @@ class Project:
     def load_boundary(self, particles):
         output = np.zeros((particles.shape[0] * 4, 4), dtype=np.float32)
         for step, vertex in enumerate(particles):
-            output[step * 4][:3] = vertex
+            output[step * 4][:3] = vertex[:3]
+            output[step * 4 + 1][:3] = np.array((0.0, 0.0, 0.0), dtype=np.float32)  # initial velocity
+            output[step * 4 + 2][:3] = -vertex[5:8]  # normal
             output[step * 4 + 1][3] = self.particle_mass   # boundary has 4 times mass as usual particles
             output[step * 4 + 2][3] = self.rho
             output[step * 4 + 3][3] = 0.0  # initial pressure

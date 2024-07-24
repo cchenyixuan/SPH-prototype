@@ -67,6 +67,9 @@ void main() {
             case 2:
                 g_out.v_color = vec4(0.0);
                 break;
+            case 9:  // normal
+                g_out.v_color = vec4(ParticleSubData[v_index][1].xyz/length(ParticleSubData[v_index][1].xyz)*2*r, length(ParticleSubData[v_index][1].xyz));
+                break;
             // new shader same as above, named boundary vector vertex shader, change particle to boundaryparticle
             // rewrite g_out.v_color with pressure and cirection at BP[id][3].xyzw
         }

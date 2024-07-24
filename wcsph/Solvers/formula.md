@@ -99,14 +99,16 @@ $$
 
 Boundary Sampling Form:
 
-$$
-
-
-$$
-
-
 
 
 Idea: calculate the volume sum of boundary when a fluid gets closed
 
 the repause force only activate when some sum function arrive certain value, else the boundary shall not influence the fluid domain
+
+2024/07/22 Trial 1: Test boundary force with following settings:
+
+1. calculate local normal vector
+2. calculate fluid density $\rho = \sum_{j \in fluid}m_jW_{ij}$
+3. calculate solid density $\rho = \sum_{j \in solid}m_jW_{ij} + \sum_{j \in fluid}m_jW_{ij}$
+4. calculate pressure and pressure-gradient
+5. calculate solid-fluid force $F_{solid\rightarrow fluid} = \sum_j m_j \left( \frac{p_i}{{\rho_i}^2} + \frac{p_j}{{\rho_j}^2}\right) \nabla W_{ij} \cdot n_j$

@@ -354,10 +354,10 @@ void ComputeBoundaryParticleDensityPressure(){
             // distance rij
             float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
             // distance less than h
-            if (rij<2*r){
+            if (rij<h){
                 // add density to location (2, 2) of its mat4x4
                 //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
-                kernel_value = wendland_3d_d(rij, 2*r);
+                kernel_value = wendland_3d(rij, h);
                 BoundaryParticle[particle_index-1][2].w += Particle[index_j-1][1].w * kernel_value;
                 // kernel_sum += particle_volume*kernel_value;
                 wall_shear_stress += (particle_pos - Particle[index_j-1][0].xyz) / (rij + 0.01 * h2) * kernel_value;
@@ -395,10 +395,10 @@ void ComputeBoundaryParticleDensityPressure(){
                     // distance rij
                     float rij = distance(particle_pos, Particle[index_j-1][0].xyz);
                     // distance less than h
-                    if(rij<2*r){
+                    if(rij<h){
                         // add density to location (2, 2) of its mat4x4
                         //     P_i_rho       +=         P_j_mass       * poly6_3d(rij, h)
-                        kernel_value = wendland_3d_d(rij, 2*r);
+                        kernel_value = wendland_3d(rij, h);
                         BoundaryParticle[particle_index-1][2].w += Particle[index_j-1][1].w * kernel_value;
                         // kernel_sum += particle_volume*kernel_value;
                         wall_shear_stress += (particle_pos - Particle[index_j-1][0].xyz) / (rij + 0.01 * h2) * kernel_value;
@@ -423,7 +423,7 @@ void ComputeBoundaryParticleDensityPressure(){
     }
     // BoundaryParticle[particle_index-1][2].w /= kernel_sum;
     BoundaryParticle[particle_index-1][2].w += rest_dense;
-    BoundaryParticle[particle_index-1][3].w = max(eos_constant * (pow(BoundaryParticle[particle_index-1][2].w/rest_dense, 1) -1), 0.0);
+    BoundaryParticle[particle_index-1][3].w = max(eos_constant * (pow(BoundaryParticle[particle_index-1][2].w/rest_dense, 1) -1) + 101325.0, 0.0);
     BoundaryParticle[particle_index-1][3].xyz = wall_shear_stress;
 }
 

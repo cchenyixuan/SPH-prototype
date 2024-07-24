@@ -63,6 +63,9 @@ class DisplayPort:
         glUseProgram(self.demo.render_shader_vector)
         glUniformMatrix4fv(self.demo.vector_projection_loc, 1, GL_FALSE, self.camera.projection)
         glUniformMatrix4fv(self.demo.vector_view_loc, 1, GL_FALSE, self.camera.view)
+        glUseProgram(self.demo.render_shader_boundary_vector)
+        glUniformMatrix4fv(self.demo.boundary_vector_projection_loc, 1, GL_FALSE, self.camera.projection)
+        glUniformMatrix4fv(self.demo.boundary_vector_view_loc, 1, GL_FALSE, self.camera.view)
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glEnable(GL_DEPTH_TEST)
@@ -105,6 +108,8 @@ class DisplayPort:
                 glProgramUniformMatrix4fv(self.demo.render_shader, self.demo.view_loc, 1, GL_FALSE, self.view)
                 glProgramUniformMatrix4fv(self.demo.render_shader_boundary, self.demo.boundary_view_loc, 1, GL_FALSE, self.view)
                 glProgramUniformMatrix4fv(self.demo.render_shader_vector, self.demo.vector_view_loc, 1, GL_FALSE,
+                                          self.view)
+                glProgramUniformMatrix4fv(self.demo.render_shader_boundary_vector, self.demo.boundary_vector_view_loc, 1, GL_FALSE,
                                           self.view)
                 self.view_changed = False
             # animation
@@ -249,6 +254,11 @@ class DisplayPort:
                     glProgramUniform1i(self.demo.render_shader_vector, self.demo.render_shader_vector_vector_type_loc,
                                        0)
                 glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 0)
+            if key == glfw.KEY_N and action == glfw.PRESS:
+                if self.show_vector:
+                    glProgramUniform1i(self.demo.render_shader_vector, self.demo.render_shader_vector_vector_type_loc,
+                                       9)
+                glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 9)
             if key == glfw.KEY_P and action == glfw.PRESS:
                 glProgramUniform1i(self.demo.render_shader, self.demo.render_shader_color_type_loc, 2)
             if key == glfw.KEY_D and action == glfw.PRESS:
